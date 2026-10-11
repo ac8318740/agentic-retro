@@ -1,0 +1,2 @@
+- [0001](0001-one-commit-per-proposal.md) – One commit per proposal, matched by ID
+- [0002](0002-cli-ships-on-npm.md) – The CLI ships on npm, not inside the plugin
