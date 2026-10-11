@@ -41,7 +41,7 @@ Every agent-setup proposal carries a risk label.
 ## Where a change may go
 
 - **New things** go under `targets.preset`, such as `~/.claude/skills`
-    - `targets.note` may name another place, such as "send spechub fixes to the spechub repo at <path>"
+    - `targets.note` may name another place, such as "send acme-skills fixes to its repo at <path>"
     - Follow the note when it covers the finding
 - **Edits to existing files** go only under a path listed in `editable`
     - Drop a finding against a file outside `editable`, however good it is

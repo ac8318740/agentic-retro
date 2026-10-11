@@ -3,6 +3,7 @@ import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { loadConfig, saveConfig, getKey, parseValue } from './config.js';
+import { INTRO } from './intro.js';
 
 const onPath = (bin) => (process.env.PATH || '').split(delimiter).some((dir) => existsSync(join(dir, bin)));
 
@@ -34,6 +35,7 @@ export async function setup() {
   const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
   const lines = rl[Symbol.asyncIterator]();
   const config = loadConfig();
+  process.stdout.write(`${INTRO}\nThese questions take about two minutes. Press Enter to keep the value in brackets.\n\n`);
 
   for (const [key, label, presets] of questions()) {
     const current = show(getKey(config, key));
