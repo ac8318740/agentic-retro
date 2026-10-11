@@ -10,8 +10,10 @@ import { syncOutcomes } from './lib/outcomes.js';
 import { notice } from './lib/notice.js';
 import { stats } from './lib/stats.js';
 import { installPi } from './lib/pi.js';
+import { INTRO } from './lib/intro.js';
 
 const USAGE = `usage: agentic-retro <command>
+  about
   setup
   config list | get <key> | set <key> <value>
   enqueue [--harness <h>] [--session <id> --transcript <path> --cwd <dir>]   (or hook JSON on stdin)
@@ -76,6 +78,7 @@ async function main() {
   if (command === 'notice') return notice(flags);
   if (command === 'stats') return stats(flags);
   if (command === 'install-pi') return installPi();
+  if (command === 'about') return process.stdout.write(INTRO);
   throw new Error(USAGE);
 }
 

@@ -86,6 +86,7 @@ Using Codex? It asks you to trust the new session-end hook the first time a sess
 
 ## CLI commands
 
+- `agentic-retro about` – print a short intro to what agentic-retro does
 - `agentic-retro setup` – interactive config, the human alternative to the setup skill
 - `agentic-retro config list | get <key> | set <key> <value>` – read or write one config key
 - `agentic-retro enqueue` – add a finished session to the queue (hooks call this)

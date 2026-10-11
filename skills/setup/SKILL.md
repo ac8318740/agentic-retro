@@ -12,6 +12,10 @@ Walk the user through agentic-retro's config, one question at a time, then write
 1. Run `command -v agentic-retro`.
 2. If the command is missing, tell the user to run `npm install -g agentic-retro`, then stop.
 
+## Open with the intro
+
+Run `agentic-retro about` and show its output to the user as is, before the first question. It says what agentic-retro does in a few lines. Add nothing to it.
+
 ## Ask each question
 
 Use the host's question tool (for example `AskUserQuestion`) when one is available. Otherwise ask in plain chat, one question at a time.
@@ -32,7 +36,7 @@ Offer the presets below for each question, and let the user type a different ans
 9. **Auto-merge** – merge low-risk agent-setup PRs automatically? Default off
 10. **Expire after** – batches an open proposal waits before it expires with no action, default 3
 11. **Targets** – where agent-setup proposals go: `~/.claude/skills`, `~/.codex/skills`, or a plugin repo path
-    - Also ask for a free-text note the batch agent reads, for example: "I develop spechub; send spechub fixes to the spechub repo at ~/spechub"
+    - Also ask for a free-text note the batch agent reads, for example: "I maintain the acme-skills plugin; send fixes to its repo at ~/code/acme-skills"
 12. **Editable paths** – which paths proposals can write to, as a JSON list; every other path stays read-only
 13. **Notes** – free text, anything else the batch agents should know
 
@@ -52,7 +56,7 @@ agentic-retro config set output pr
 agentic-retro config set autoMergeLowRisk false
 agentic-retro config set expireAfterBatches 3
 agentic-retro config set targets.preset ~/.claude/skills
-agentic-retro config set targets.note "I develop spechub; send spechub fixes to ~/spechub"
+agentic-retro config set targets.note "I maintain the acme-skills plugin; send fixes to its repo at ~/code/acme-skills"
 agentic-retro config set editable '["~/.claude/skills"]'
 agentic-retro config set notes "ask about this"
 ```
