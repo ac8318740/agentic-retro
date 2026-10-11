@@ -1,3 +1,18 @@
 workflow:
   maps:
     tracker: github
+  tdd:
+    strict: true
+  frontend_verification: false
+  design_review: false
+
+commands:
+  test: "npm test"
+  build: null
+  lint: null
+  typecheck: null
+  format: null
+
+directories:
+  source: "cli/"
+  tests: "test/"

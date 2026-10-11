@@ -1,0 +1,12 @@
+{
+  "name": "agentic-retro",
+  "version": "0.1.0",
+  "description": "agentic-retrospective: reviews finished agent coding sessions and proposes improvements",
+  "type": "module",
+  "bin": { "agentic-retro": "cli/agentic-retro.js" },
+  "files": ["cli/", "skills/"],
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.js" },
+  "license": "MIT",
+  "repository": "github:ac8318740/agentic-retro"
+}
