@@ -4,7 +4,7 @@ The plugin holds only the hooks and the skills. The `agentic-retro` command line
 
 ## Considered options
 
-Bundling the CLI in the plugin means one install. It also needs a shim that finds the right copy in each harness's plugin cache, and spechub's experience with that shim was painful. Claude Code, Codex, and Pi each cache plugins differently.
+Bundling the CLI in the plugin means one install. It also needs a shim that finds the right copy in each harness's plugin cache, and maintaining such a shim is painful. Claude Code, Codex, and Pi each cache plugins differently.
 
 ## Consequences
 
