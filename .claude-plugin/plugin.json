@@ -1,0 +1,17 @@
+{
+  "name": "agentic-retro",
+  "description": "Learns from finished coding sessions and proposes improvements to code clarity, agent setup, and the repo itself.",
+  "version": "0.1.0",
+  "author": {
+    "name": "ac8318740"
+  },
+  "repository": "https://github.com/ac8318740/agentic-retro",
+  "license": "MIT",
+  "keywords": [
+    "retrospective",
+    "agentic-retro",
+    "agent-setup",
+    "code-clarity",
+    "automation"
+  ]
+}
