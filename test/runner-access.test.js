@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from '../cli/lib/config.js';
 import { buildCommand } from '../cli/lib/runner.js';
 import { tempDir } from './helpers/cli.js';
+import './lib/commands.test.js';
 
 // The batch agent edits the repos its sessions ran in, the user's editable paths, and the state folder.
 // Each harness must be granted those folders up front, because a headless run cannot ask.

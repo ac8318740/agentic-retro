@@ -1,5 +1,5 @@
 // Builds the command that starts the batch agent in each harness.
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,7 +37,15 @@ function sessionsOf(batchDir) {
 }
 
 function workDirs(config, sessions) {
-  const paths = [...sessions.map((s) => s.repo), ...(config.editable ?? []).map(expandHome)];
+  const editable = (config.editable ?? []).map((path) => {
+    path = expandHome(path);
+    try {
+      return statSync(path).isFile() ? dirname(path) : path;
+    } catch {
+      return path;
+    }
+  });
+  const paths = [...sessions.flatMap((s) => [s.repo, s.cwd]), ...editable];
   return [...new Set(paths.filter(Boolean))];
 }
 

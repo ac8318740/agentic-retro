@@ -2,17 +2,21 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, basename } from 'node:path';
+import { join, basename, resolve } from 'node:path';
 import { readJson, writeJson } from './paths.js';
 import { loadConfig } from './config.js';
 import { startBatch } from './runner.js';
 
-function repoOf(cwd) {
+function repoOf(cwd, fallback = cwd) {
   try {
-    return execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const options = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
+    const commonDir = execFileSync('git', ['-C', cwd, 'rev-parse', '--git-common-dir'], options).replace(/\n$/, '');
+    // Git lists the shared identity first: the main checkout or its separate metadata directory.
+    const worktrees = execFileSync('git', ['--git-dir', resolve(cwd, commonDir), 'worktree', 'list', '--porcelain', '-z'], options);
+    const main = worktrees.split('\0').find((field) => field.startsWith('worktree '));
+    return main ? main.slice('worktree '.length) : fallback;
   } catch {
-    return cwd;
+    return fallback;
   }
 }
 
@@ -43,8 +47,8 @@ export async function enqueue({ harness, sessionId, transcript, cwd }) {
   harness ||= harnessOf(transcript);
   if (!harness || !sessionId || !cwd) throw new Error('enqueue needs a harness, session, and cwd');
 
-  const queue = readJson('queue.json', []);
-  if (queue.some((s) => s.sessionId === sessionId)) return;
+  const queue = readJson('queue.json', []).map((s) => ({ ...s, repo: repoOf(s.cwd, s.repo) }));
+  if (queue.some((s) => s.sessionId === sessionId)) return writeJson('queue.json', queue);
   const entry = { harness, sessionId, transcript, cwd, repo: repoOf(cwd), endedAt: new Date().toISOString() };
   queue.push(entry);
 
