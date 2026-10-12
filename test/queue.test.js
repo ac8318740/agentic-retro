@@ -4,6 +4,7 @@ import { mkdirSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tempDir, run, readState } from './helpers/cli.js';
+import './lib/queue.test.js';
 
 // Batch handoff contract, under AGENTIC_RETRO_DRY_RUN=1 (set by the helper on every run):
 // runner.startBatch(batch) writes batches/<n>/batch.json as { sessions: [queue entries] }
