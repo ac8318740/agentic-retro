@@ -1,0 +1,82 @@
+name: tag-release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  tag-release:
+    name: tag-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag the release
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "tag-release: ${tag} already exists."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email \
+              "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "${tag}" -m "agentic-retro ${version}"
+            git push origin "refs/tags/${tag}"
+            echo "tag-release: created ${tag}."
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+
+      - name: Install npm with staged publish support
+        run: |
+          npm install -g npm@11.19.0
+          npm --version
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Stage npm release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::NPM_TOKEN is not set."
+            echo "Add an npm automation token as the NPM_TOKEN"
+            echo "repository secret."
+            exit 1
+          fi
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "npm: ${name}@${version} already published, nothing to stage."
+            exit 0
+          fi
+          if npm stage publish . --access public --provenance 2>&1 \
+            | tee /tmp/npm-stage.log; then
+            echo "npm: staged ${name}@${version}."
+            echo "Approve it on npmjs.com to publish."
+            exit 0
+          fi
+          if grep -q "Version uniqueness check failed unexpectedly" \
+            /tmp/npm-stage.log; then
+            echo "npm: ${name}@${version} appears to be staged already."
+            echo "Approve it on npmjs.com to publish."
+            exit 0
+          fi
+          exit 1
