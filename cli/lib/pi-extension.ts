@@ -2,7 +2,9 @@
 // Queues each finished session for a retro and shows new proposals at session start.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFile, spawn } from "node:child_process";
+import { createReadStream } from "node:fs";
 import { dirname, join } from "node:path";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -57,6 +59,21 @@ function skillPrompt(skill: string, args: string) {
   return `Use the agentic-retro skill at ${skill}.${request ? `\n\nUser request: ${request}` : ""}`;
 }
 
+async function isChildTranscript(path) {
+  try {
+    const lines = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
+    for await (const line of lines) {
+      let entry;
+      try { entry = JSON.parse(line); } catch { continue; }
+      if (entry?.type !== "session") continue;
+      return Object.hasOwn(entry, "parentSession");
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export default function (pi: ExtensionAPI) {
   pi.registerCommand("agentic-retro", {
     description: "Run the package-local agentic-retro CLI",
@@ -85,12 +102,13 @@ export default function (pi: ExtensionAPI) {
     handler: async (args, ctx) => sendUserMessage(pi, ctx, skillPrompt(RETRO_SKILL, args)),
   });
 
-  pi.on("session_shutdown", (event, ctx) => {
+  pi.on("session_shutdown", async (event, ctx) => {
     if (event.reason !== "quit") return; // "new", "resume", and "fork" only switch sessions
     if (process.env.AGENTIC_RETRO_RUN === "1") return; // batch agents never queue themselves
 
     const transcript = ctx.sessionManager.getSessionFile();
     if (!transcript) return; // nothing was said, so nothing was saved
+    if (await isChildTranscript(transcript)) return; // Pi sub-agent sessions are only context for their parent
 
     const child = spawn(process.execPath, [
       CLI, "enqueue", "--harness", "pi",
