@@ -3,6 +3,9 @@
   "version": "0.1.2",
   "description": "agentic-retrospective: reviews finished agent coding sessions and proposes improvements",
   "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
   "bin": {
     "agentic-retro": "cli/agentic-retro.js"
   },
@@ -13,8 +16,22 @@
   "engines": {
     "node": ">=20"
   },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "pi": {
+    "extensions": [
+      "cli/lib/pi-extension.ts"
+    ],
+    "skills": []
+  },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "license": "MIT",
   "repository": {
