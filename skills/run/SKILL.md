@@ -109,20 +109,24 @@ agentic-retro propose --repo <target repo path> --category <category> [--risk lo
 
 Do this once per target repo. Skip a target with no git remote, and put its proposals in a report file instead (5b).
 
+Before you branch, read the repo's PR rules in its `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md` and CI workflows, such as a `dev` base branch or a version bump.
+
 ```bash
 git -C "$repo" fetch origin
-base=$(git -C "$repo" symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')
+base=$(git -C "$repo" symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')  # override with the rules' base
 wt=$(mktemp -d)/wt
 git -C "$repo" worktree add -b "agentic-retro/batch-<n>" "$wt" "origin/$base"
 ```
 
 1. Apply each proposal in `$wt`, then commit it on its own: `git -C "$wt" add -A && git -C "$wt" commit -m "P12: <title>"`
-2. Push the branch: `git -C "$wt" push -u origin "agentic-retro/batch-<n>"`
-3. Write the body per `writing-proposals.md`, then open the PR from `$wt`: `gh pr create --base "$base" --title "<title>" --body-file <file>`
-4. Record the PR and commit on each proposal: `agentic-retro link P12 --pr <url> --commit <sha>`
-5. Remove the worktree: `git -C "$repo" worktree remove "$wt"`
+2. Do the steps the rules require in one last commit without a proposal ID, so dropping a proposal keeps them. When a step needs a command you cannot run, say so at the top of the PR body
+3. Push the branch: `git -C "$wt" push -u origin "agentic-retro/batch-<n>"`
+4. Write the body per `writing-proposals.md`, then open the PR from `$wt`: `gh pr create --base "$base" --title "<title>" --body-file <file>`
+5. Wait for CI with `gh pr checks <url> --watch`, then fix each failure in a new commit and push
+6. Record the PR and commit on each proposal: `agentic-retro link P12 --pr <url> --commit <sha>`
+7. Remove the worktree: `git -C "$repo" worktree remove "$wt"`
 
-When `autoMergeLowRisk` is `true`, low-risk agent-setup proposals go on a second branch, `agentic-retro/batch-<n>-low-risk`, with their own PR. Merge that PR with `gh pr merge --merge` once it opens. Everything else waits for the user.
+When `autoMergeLowRisk` is `true`, low-risk agent-setup proposals go on a second branch, `agentic-retro/batch-<n>-low-risk`, with their own PR. Merge that PR with `gh pr merge --merge` once its checks pass. Everything else waits for the user.
 
 ## 5b. Report mode: one report file
 

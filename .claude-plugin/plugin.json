@@ -1,7 +1,7 @@
 {
   "name": "agentic-retro",
   "description": "Learns from finished coding sessions and proposes improvements to code clarity, agent setup, and the repo itself.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": {
     "name": "ac8318740"
   },
