@@ -39,7 +39,7 @@ export function syncOutcomes() {
     if (status !== 'open') setStatus(p, status);
   }
 
-  for (const p of open()) {
+  for (const p of open().filter((p) => !p.pr)) {
     if (ledger.batchCount - p.batch >= expireAfterBatches) setStatus(p, 'expired');
   }
   saveLedger(ledger);
