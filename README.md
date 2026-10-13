@@ -102,3 +102,19 @@ Using Codex? It asks you to trust the new session-end hook the first time a sess
 ## State
 
 Everything lives under `~/.agentic-retro/` (override with `AGENTIC_RETRO_HOME`): `config.json`, `queue.json`, `ledger.json`, `metrics.jsonl`, per-batch digests, and report files.
+
+## Working on agentic-retro
+
+Run the tests with `npm test`.
+
+- `cli/agentic-retro.js` – parses argv and routes each command to its module
+- `cli/lib/` – one module per concern; each file's first line says what it owns
+    - `queue.js` and `runner.js` – sessions wait in the queue, then the runner starts a batch
+    - `digest.js` and `transcripts/` – one transcript parser per harness, feeding the digests
+    - `ledger.js` and `outcomes.js` – proposals, and `sync`, which settles them from their PRs
+    - `pi.js` and `pi-extension.ts` – the Pi extension that stands in for hooks
+- `skills/` – the `run`, `review`, `setup` and `retro` skills
+    - The `run` skill opens the PRs, not the CLI: its `SKILL.md` holds the branch, commit and PR steps
+- `hooks/` – the Claude Code and Codex session hooks
+- `docs/adr/` – architecture decision records
+- `test/` – one `*.test.js` per area, with shared helpers in `test/helpers/`
