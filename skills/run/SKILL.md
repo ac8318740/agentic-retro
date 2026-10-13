@@ -121,10 +121,11 @@ git -C "$repo" worktree add -b "agentic-retro/batch-<n>" "$wt" "origin/$base"
 1. Apply each proposal in `$wt`, then commit it on its own: `git -C "$wt" add -A && git -C "$wt" commit -m "P12: <title>"`
 2. Do the steps the rules require in one last commit without a proposal ID, so dropping a proposal keeps them. When a step needs a command you cannot run, say so at the top of the PR body
 3. Push the branch: `git -C "$wt" push -u origin "agentic-retro/batch-<n>"`
-4. Write the body per `writing-proposals.md`, then open the PR from `$wt`: `gh pr create --base "$base" --title "<title>" --body-file <file>`
-5. Wait for CI with `gh pr checks <url> --watch`, then fix each failure in a new commit and push
-6. Record the PR and commit on each proposal: `agentic-retro link P12 --pr <url> --commit <sha>`
-7. Remove the worktree: `git -C "$repo" worktree remove "$wt"`
+4. Make sure the `agentic-retro` label exists from `$wt`: `(cd "$wt" && gh label create agentic-retro --force)`
+5. Write the body per `writing-proposals.md`, then open the PR from `$wt`: `(cd "$wt" && gh pr create --base "$base" --title "<title>" --body-file <file> --label agentic-retro)`
+6. Wait for CI with `gh pr checks <url> --watch`, then fix each failure in a new commit and push
+7. Record the PR and commit on each proposal: `agentic-retro link P12 --pr <url> --commit <sha>`
+8. Remove the worktree: `git -C "$repo" worktree remove "$wt"`
 
 When `autoMergeLowRisk` is `true`, low-risk agent-setup proposals go on a second branch, `agentic-retro/batch-<n>-low-risk`, with their own PR. Merge that PR with `gh pr merge --merge` once its checks pass. Everything else waits for the user.
 
