@@ -102,7 +102,7 @@ test('every status change sets statusAt to now', () => {
   assert.ok(at >= before - 1000 && at <= Date.now() + 1000, `statusAt not current: ${s.status('P1').statusAt}`);
 });
 
-test('a proposal open for expireAfterBatches batches expires, in both PR and report mode', () => {
+test('stale proposal without a PR expires, but one with an open PR stays open', () => {
   // batchCount 3: whether or not sync increments it, batch 0 is >= 3 old and batch 2 is < 3 old.
   const s = setup({
     proposals: [
@@ -117,7 +117,8 @@ test('a proposal open for expireAfterBatches batches expires, in both PR and rep
   assert.equal(s.status('P1').status, 'expired');
   assert.ok(s.status('P1').statusAt, 'expiry sets statusAt');
   assert.equal(s.status('P2').status, 'open');
-  assert.equal(s.status('P3').status, 'expired');
+  assert.equal(s.status('P3').status, 'open');
+  assert.equal(s.status('P3').statusAt, null);
   assert.equal(s.status('P4').status, 'rejected');
   assert.equal(s.status('P4').statusAt, '2026-01-02T00:00:00.000Z');
 });

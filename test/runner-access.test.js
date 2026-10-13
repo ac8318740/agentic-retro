@@ -75,6 +75,21 @@ test('pi: loads the run skill shipped inside the package', () => {
   assert.ok(existsSync(join(skill, 'SKILL.md')), 'the run skill folder exists');
 });
 
+test('run skill labels PR-mode pull requests as agentic-retro', () => {
+  const skill = readFileSync(join(PACKAGE_ROOT, 'skills', 'run', 'SKILL.md'), 'utf8');
+
+  assert.match(
+    skill,
+    /(?:ensure|create|make sure|verify)[^\n.]*label[^\n.]*`?agentic-retro`?|`?agentic-retro`?[^\n.]*label[^\n.]*(?:exists|available|created)/i,
+    'PR mode should make the agentic-retro label available before opening PRs',
+  );
+  assert.match(
+    skill,
+    /gh\s+pr\s+create[^\n`]*--label(?:=|\s+)["'`]?agentic-retro["'`]?/i,
+    'PR mode should pass --label agentic-retro to gh pr create',
+  );
+});
+
 test('package.json ships the skills folder', () => {
   const { files } = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'));
   assert.ok(files.some((f) => f.replace(/\/$/, '') === 'skills'), `files: ${files}`);
