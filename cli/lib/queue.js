@@ -1,8 +1,9 @@
 // The queue: finished sessions wait here until their group fills a batch.
 import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { createReadStream, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, basename, resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import { readJson, writeJson } from './paths.js';
 import { loadConfig } from './config.js';
 import { startBatch } from './runner.js';
@@ -41,11 +42,28 @@ function harnessOf(transcript) {
   return undefined;
 }
 
+async function isPiChildTranscript(transcript) {
+  if (!transcript) return false;
+  try {
+    const lines = createInterface({ input: createReadStream(transcript), crlfDelay: Infinity });
+    for await (const line of lines) {
+      let entry;
+      try { entry = JSON.parse(line); } catch { continue; }
+      if (entry?.type !== 'session') continue;
+      return Object.hasOwn(entry, 'parentSession');
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export async function enqueue({ harness, sessionId, transcript, cwd }) {
   if (process.env.AGENTIC_RETRO_RUN === '1') return; // batch agents never queue themselves
   transcript ||= findCodexRollout(sessionId) ?? null;
   harness ||= harnessOf(transcript);
   if (!harness || !sessionId || !cwd) throw new Error('enqueue needs a harness, session, and cwd');
+  if (harness === 'pi' && await isPiChildTranscript(transcript)) return;
 
   const queue = readJson('queue.json', []).map((s) => ({ ...s, repo: repoOf(s.cwd, s.repo) }));
   if (queue.some((s) => s.sessionId === sessionId)) return writeJson('queue.json', queue);
