@@ -6,9 +6,11 @@ agentic-retro ("agentic-retrospective") learns from your finished coding session
 
 ```mermaid
 flowchart TD
-    A["Session ends<br/>(hook in each harness)"] --> B["CLI adds session to queue"]
+    A["Session ends<br/>(hook in each harness)"] --> P{"Project enabled?"}
+    P -->|no| Z["Stop"]
+    P -->|yes| B["CLI adds session to queue"]
     B --> C{"5 sessions queued for this repo?"}
-    C -->|no| Z["Stop"]
+    C -->|no| Z
     C -->|yes| D["CLI writes digests and metrics,<br/>and updates past proposal outcomes"]
     D --> E["Runner starts one lead agent;<br/>it runs one subagent per ticked category<br/>(Claude, Codex, Pi, or herdr pane)"]
     E --> F["Subagents write proposals,<br/>skipping anything rejected or expired before"]
@@ -17,7 +19,7 @@ flowchart TD
     H --> I["User reviews proposals"]
 ```
 
-- A session-end hook in each harness queues the session (`agentic-retro enqueue`)
+- A session-end hook queues sessions only for explicitly enabled repositories (`agentic-retro enqueue`)
 - Once a repo has 5 queued sessions (configurable), the CLI starts a batch
 - One lead agent runs per batch, and it runs one subagent per ticked category: code clarity, agent setup, repo changes
 - Agents write proposals as a PR (one per repo) or a report file, per your setup choice
@@ -73,6 +75,23 @@ Both write the same `~/.agentic-retro/config.json`:
 - which categories run, and the output mode (PR or report)
 - where agent-setup proposals land
 
+Enable collection separately in each repository you want reviewed:
+
+```sh
+agentic-retro project enable
+agentic-retro project status
+# Stop collection and startup notices for this repository:
+agentic-retro project disable
+```
+
+- Every repository starts disabled, including repositories used before this update
+- Run these commands from any worktree or subdirectory, or pass `--cwd <dir>`
+- All worktrees share the setting, including worktrees elsewhere on the machine
+- Git stores `agentic-retro.enabled` in its shared local configuration, outside tracked files
+- Separate clones require separate opt-in
+- Disabling retains queued sessions but excludes them from future batches until re-enabled
+- Disabling does not stop an already-running batch
+
 Using Pi? Run `agentic-retro install-pi` once. Pi has no hook config, so this extension queues finished Pi sessions and shows the notice.
 
 Using Codex? It asks you to trust the new session-end hook the first time a session ends after install.
@@ -88,7 +107,8 @@ Using Codex? It asks you to trust the new session-end hook the first time a sess
 
 - `agentic-retro about` – print a short intro to what agentic-retro does
 - `agentic-retro setup` – interactive config, the human alternative to the setup skill
-- `agentic-retro config list | get <key> | set <key> <value>` – read or write one config key
+- `agentic-retro config list | get <key> | set <key> <value>` – read or write one global config key
+- `agentic-retro project enable | disable | status [--cwd <dir>]` – control collection and notices for one repository
 - `agentic-retro enqueue` – add a finished session to the queue (hooks call this)
 - `agentic-retro propose` – record a new proposal (batch agents call this)
 - `agentic-retro link <id>` – attach a PR and commit to a proposal
@@ -101,4 +121,6 @@ Using Codex? It asks you to trust the new session-end hook the first time a sess
 
 ## State
 
-Everything lives under `~/.agentic-retro/` (override with `AGENTIC_RETRO_HOME`): `config.json`, `queue.json`, `ledger.json`, `metrics.jsonl`, per-batch digests, and report files.
+- Runtime state lives under `~/.agentic-retro/` (override with `AGENTIC_RETRO_HOME`): config, queue, ledger, metrics, batch digests, and reports
+- Repository activation lives in Git's shared local configuration and never enters the tracked checkout
+- Keep runtime state outside repositories; Git ignores its own metadata automatically

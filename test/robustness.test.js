@@ -2,10 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync, readFileSync, chmodSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { tempDir, run, readState } from './helpers/cli.js';
+import { tempDir, run, readState, enabledRepo } from './helpers/cli.js';
+
+const repo = enabledRepo();
 
 function proposal(id, fields = {}) {
-  return { id, batch: 1, repo: '/r', category: 'clarity', risk: null, title: `title ${id}`, status: 'open',
+  return { id, batch: 1, repo, category: 'clarity', risk: null, title: `title ${id}`, status: 'open',
     createdAt: '2026-01-01T00:00:00.000Z', statusAt: null, pr: null, commit: null, ...fields };
 }
 
@@ -22,14 +24,14 @@ const proposalById = (home, id) => readState(home, 'ledger.json').proposals.find
 
 test('notice says "1 new proposal" for a single proposal', () => {
   const home = withLedger([proposal('P1', { pr: 'https://github.com/x/y/pull/1' })], { config: { output: 'pr' } });
-  const line = run(home, ['notice']).stdout.trim();
+  const line = run(home, ['notice', '--cwd', repo]).stdout.trim();
   assert.match(line, /\b1 new proposal\b/);
   assert.doesNotMatch(line, /1 new proposals/);
 });
 
 test('notice in PR mode with no PR links still counts proposals and has no dangling colon', () => {
   const home = withLedger([proposal('P1'), proposal('P2')], { config: { output: 'pr' } });
-  const { code, stdout } = run(home, ['notice']);
+  const { code, stdout } = run(home, ['notice', '--cwd', repo]);
   assert.equal(code, 0);
   const line = stdout.trim();
   assert.match(line, /2 new proposals/);
@@ -39,7 +41,7 @@ test('notice in PR mode with no PR links still counts proposals and has no dangl
 test('notice in PR mode counts proposals without a PR alongside linked ones', () => {
   const home = withLedger([proposal('P1', { pr: 'https://github.com/x/y/pull/1' }), proposal('P2')],
     { config: { output: 'pr' } });
-  const line = run(home, ['notice']).stdout.trim();
+  const line = run(home, ['notice', '--cwd', repo]).stdout.trim();
   assert.match(line, /2 new proposals/);
   assert.match(line, /https:\/\/github\.com\/x\/y\/pull\/1/);
   assert.doesNotMatch(line, /,\s*$|:\s*$/);
@@ -84,7 +86,7 @@ test('sync keeps going when gh fails for one PR: other PRs update, expiry applie
 
 test('enqueue keeps the sessions in the queue when the batch hand-off fails', () => {
   const home = tempDir();
-  const cwd = tempDir('agentic-retro-plain-');
+  const cwd = enabledRepo();
   run(home, ['config', 'set', 'batch.size', '2']);
   // A file where the batches folder should be makes writing the batch manifest fail.
   writeFileSync(join(home, 'batches'), 'not a folder');

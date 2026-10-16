@@ -1,25 +1,12 @@
 // The queue: finished sessions wait here until their group fills a batch.
-import { execFileSync } from 'node:child_process';
 import { createReadStream, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, basename, resolve } from 'node:path';
+import { join, basename } from 'node:path';
 import { createInterface } from 'node:readline';
 import { readJson, writeJson } from './paths.js';
 import { loadConfig } from './config.js';
 import { startBatch } from './runner.js';
-
-function repoOf(cwd, fallback = cwd) {
-  try {
-    const options = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
-    const commonDir = execFileSync('git', ['-C', cwd, 'rev-parse', '--git-common-dir'], options).replace(/\n$/, '');
-    // Git lists the shared identity first: the main checkout or its separate metadata directory.
-    const worktrees = execFileSync('git', ['--git-dir', resolve(cwd, commonDir), 'worktree', 'list', '--porcelain', '-z'], options);
-    const main = worktrees.split('\0').find((field) => field.startsWith('worktree '));
-    return main ? main.slice('worktree '.length) : fallback;
-  } catch {
-    return fallback;
-  }
-}
+import { projectEnabled, repoOf } from './project.js';
 
 // Codex sometimes ends a session with a null transcript_path, so look for its rollout file.
 function findCodexRollout(sessionId) {
@@ -60,6 +47,7 @@ async function isPiChildTranscript(transcript) {
 
 export async function enqueue({ harness, sessionId, transcript, cwd }) {
   if (process.env.AGENTIC_RETRO_RUN === '1') return; // batch agents never queue themselves
+  if (!projectEnabled(cwd)) return;
   transcript ||= findCodexRollout(sessionId) ?? null;
   harness ||= harnessOf(transcript);
   if (!harness || !sessionId || !cwd) throw new Error('enqueue needs a harness, session, and cwd');
@@ -72,7 +60,7 @@ export async function enqueue({ harness, sessionId, transcript, cwd }) {
 
   const { batch } = loadConfig();
   const sameGroup = (s) => batch.group === 'global' || s.repo === entry.repo;
-  const group = queue.filter(sameGroup);
+  const group = queue.filter((s) => sameGroup(s) && projectEnabled(s.repo));
   if (group.length < batch.size) return writeJson('queue.json', queue);
 
   // Save first and remove after, so a failed hand-off leaves the sessions queued.

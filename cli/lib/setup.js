@@ -50,5 +50,5 @@ export async function setup() {
 
   rl.close();
   saveConfig(config);
-  process.stdout.write('\nSaved config.json\n');
+  process.stdout.write('\nSaved config.json\nRepositories remain disabled until you run: agentic-retro project enable\n');
 }

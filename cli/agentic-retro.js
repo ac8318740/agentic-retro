@@ -11,17 +11,19 @@ import { notice } from './lib/notice.js';
 import { stats } from './lib/stats.js';
 import { installPi } from './lib/pi.js';
 import { INTRO } from './lib/intro.js';
+import { project } from './lib/project.js';
 
 const USAGE = `usage: agentic-retro <command>
   about
   setup
+  project enable | disable | status [--cwd <dir>]
   config list | get <key> | set <key> <value>
   enqueue [--harness <h>] [--session <id> --transcript <path> --cwd <dir>]   (or hook JSON on stdin)
   propose --repo <path> --category <c> [--risk low|high] --title <t> [--pr <pr> --commit <msg>]
   mark <id> <accepted|rejected>
   link <id> [--pr <url>] [--commit <sha>]
   ledger [--status <s>[,<s>...]]
-  notice [--json]
+  notice [--json] [--cwd <dir>]
   stats [--json]
   sync
   install-pi`;
@@ -69,13 +71,14 @@ async function main() {
 
   if (command === 'setup') return setup();
   if (command === 'config') return config(positionals);
+  if (command === 'project') return project(positionals[0], flags.cwd);
   if (command === 'enqueue') return enqueueCommand(flags);
   if (command === 'propose') return console.log(propose(flags));
   if (command === 'mark') return mark(...positionals);
   if (command === 'link') return link(positionals[0], flags);
   if (command === 'ledger') return listProposals(flags.status).forEach((p) => console.log(formatProposal(p)));
   if (command === 'sync') return syncOutcomes();
-  if (command === 'notice') return notice(flags);
+  if (command === 'notice') return notice({ ...flags, cwd: flags.cwd ?? readHook().cwd ?? process.cwd() });
   if (command === 'stats') return stats(flags);
   if (command === 'install-pi') return installPi();
   if (command === 'about') return process.stdout.write(INTRO);

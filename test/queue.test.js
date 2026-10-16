@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { tempDir, run, readState } from './helpers/cli.js';
+import { tempDir, run, readState, enabledRepo } from './helpers/cli.js';
 import './lib/queue.test.js';
 
 // Batch handoff contract, under AGENTIC_RETRO_DRY_RUN=1 (set by the helper on every run):
@@ -19,6 +19,7 @@ function enqueue(home, sessionId, cwd, env) {
 function gitRepo() {
   const dir = tempDir('agentic-retro-repo-');
   execFileSync('git', ['init', '-q', dir]);
+  execFileSync('git', ['-C', dir, 'config', '--local', 'agentic-retro.enabled', 'true']);
   return dir;
 }
 
@@ -33,7 +34,7 @@ const ids = (sessions) => sessions.map((s) => s.sessionId).sort();
 
 test('enqueue with flags adds a full entry to queue.json', () => {
   const home = tempDir();
-  const cwd = tempDir('agentic-retro-plain-');
+  const cwd = enabledRepo();
   assert.equal(enqueue(home, 's1', cwd).code, 0);
   const [entry] = readState(home, 'queue.json');
   assert.equal(entry.harness, 'claude');
@@ -52,16 +53,16 @@ test('enqueue sets repo to the git toplevel of cwd', () => {
   assert.equal(readState(home, 'queue.json')[0].repo, repo);
 });
 
-test('enqueue sets repo to cwd itself outside a git repo', () => {
+test('enqueue ignores sessions outside a git repo', () => {
   const home = tempDir();
   const cwd = tempDir('agentic-retro-plain-');
   enqueue(home, 's1', cwd);
-  assert.equal(readState(home, 'queue.json')[0].repo, cwd);
+  assert.equal(readState(home, 'queue.json'), undefined);
 });
 
 test('enqueue reads the harness hook JSON from stdin when flags are missing', () => {
   const home = tempDir();
-  const cwd = tempDir('agentic-retro-plain-');
+  const cwd = enabledRepo();
   const hook = { session_id: 'hook-1', transcript_path: '/t/hook-1.jsonl', cwd, hook_event_name: 'SessionEnd' };
   const { code } = run(home, ['enqueue', '--harness', 'claude'], { input: JSON.stringify(hook) });
   assert.equal(code, 0);
@@ -80,7 +81,7 @@ test('enqueue is a no-op inside a retro run (AGENTIC_RETRO_RUN=1)', () => {
 
 test('enqueue ignores a session id already in the queue', () => {
   const home = tempDir();
-  const cwd = tempDir();
+  const cwd = enabledRepo();
   enqueue(home, 's1', cwd);
   enqueue(home, 's1', cwd);
   assert.equal(readState(home, 'queue.json').length, 1);

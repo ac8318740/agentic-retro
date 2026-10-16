@@ -8,7 +8,10 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { enabledRepo } from './helpers/cli.js';
+
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'cli', 'agentic-retro.js');
+const repo = enabledRepo();
 
 function makeHome() {
   return mkdtempSync(join(tmpdir(), 'agentic-retro-notice-'));
@@ -21,7 +24,7 @@ function writeState(home, { config = {}, ledger }, raw) {
 }
 
 function runNotice(home, args = [], extraEnv = {}) {
-  return spawnSync(process.execPath, [CLI, 'notice', ...args], {
+  return spawnSync(process.execPath, [CLI, 'notice', '--cwd', repo, ...args], {
     env: { ...process.env, AGENTIC_RETRO_HOME: home, ...extraEnv },
     encoding: 'utf8',
   });
@@ -29,7 +32,7 @@ function runNotice(home, args = [], extraEnv = {}) {
 
 function proposal(overrides) {
   return {
-    id: 'P1', batch: 1, repo: '/repo', category: 'clarity', risk: null,
+    id: 'P1', batch: 1, repo, category: 'clarity', risk: null,
     title: 'x', status: 'open', createdAt: '2020-01-01T00:00:00.000Z',
     statusAt: '2020-01-01T00:00:00.000Z', pr: null, commit: null,
     ...overrides,
