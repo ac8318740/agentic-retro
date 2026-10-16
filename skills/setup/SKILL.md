@@ -25,7 +25,7 @@ Offer the presets below for each question, and let the user type a different ans
 1. **Batch size** – sessions per batch, default 5
 2. **Grouping** – `repo` (default) or `global`
 3. **Runner harness** – `claude`, `codex`, or `pi`; add `herdr` to the choices only if `command -v herdr` finds it
-4. **Model** – `opus` or `default`; `opus` applies to Claude, Codex and Pi use their own default unless given a model name they understand (for example `o3`)
+4. **Model** – `opus` or `default`; `opus` applies to Claude, Codex and Pi use their default unless given a model name they understand (for example `o3`)
 5. **Runner permissions** – how much the batch agent can do without asking:
     - `auto` (default) – the harness's own auto mode
     - `scoped` – file edits, plus only `git`, `gh`, and `agentic-retro` commands
@@ -66,6 +66,14 @@ Never edit `config.json` by hand. `config set` is the only path that keeps the s
 ## Offer the Pi extension
 
 Run `command -v pi`. If it finds Pi, ask whether to install the agentic-retro extension for it. On yes, run `agentic-retro install-pi`.
+
+## Enable this repository
+
+Every repository starts disabled. Ask whether the user wants to enable collection in the current repository.
+
+On yes, run `agentic-retro project enable` from that repository. All its worktrees share this untracked Git setting.
+
+On no, leave the repository disabled. Global configuration alone does not enable collection.
 
 ## Finish
 

@@ -26,8 +26,9 @@ async function loadPiExtension(extensionPath = EXTENSION_PATH) {
 
 test('agentic-retro command preserves quoted argument values when dispatching to the CLI', async () => {
   let execArgv;
-  globalThis.__agenticRetroExecFile = (_command, argv, callback) => {
+  globalThis.__agenticRetroExecFile = (_command, argv, options, callback) => {
     execArgv = argv;
+    assert.equal(options.cwd, '/tmp/active-project');
     callback(null, '', '');
   };
 
@@ -40,7 +41,7 @@ test('agentic-retro command preserves quoted argument values when dispatching to
     on() {},
   });
 
-  await commands.get('agentic-retro').handler('propose --title "hello \\"world\\"" --empty "" --repo "/tmp/with space"', {});
+  await commands.get('agentic-retro').handler('propose --title "hello \\"world\\"" --empty "" --repo "/tmp/with space"', { cwd: '/tmp/active-project' });
 
   try {
     assert.deepEqual(execArgv.slice(1), [
@@ -65,9 +66,10 @@ test('installed agentic-retro command dispatches through node to the package-loc
 
   let execCommand;
   let execArgv;
-  globalThis.__agenticRetroExecFile = (command, argv, callback) => {
+  globalThis.__agenticRetroExecFile = (command, argv, options, callback) => {
     execCommand = command;
     execArgv = argv;
+    assert.equal(options.cwd, '/tmp/active-project');
     callback(null, '', '');
   };
 
@@ -80,7 +82,7 @@ test('installed agentic-retro command dispatches through node to the package-loc
     on() {},
   });
 
-  await commands.get('agentic-retro').handler('notice', {});
+  await commands.get('agentic-retro').handler('notice', { cwd: '/tmp/active-project' });
 
   try {
     assert.equal(execCommand, process.execPath);

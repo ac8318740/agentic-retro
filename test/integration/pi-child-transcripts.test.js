@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeBatchDigests } from '../../cli/lib/digest.js';
-import { tempDir, run, readState } from '../helpers/cli.js';
+import { tempDir, run, readState, enabledRepo } from '../helpers/cli.js';
 
 function piTranscript(dir, name, header) {
   const path = join(dir, `${name}.jsonl`);
@@ -28,7 +28,7 @@ function batchCount(home) {
 test('pi child transcripts remain readable context but do not enqueue or create retro batches', async () => {
   const digestHome = tempDir();
   const enqueueHome = tempDir();
-  const cwd = tempDir('agentic-retro-pi-cwd-');
+  const cwd = enabledRepo();
   const transcriptDir = join(tempDir('agentic-retro-pi-transcripts-'), '.pi', 'agent', 'sessions', 'demo');
   mkdirSync(transcriptDir, { recursive: true });
   const childTranscript = piTranscript(transcriptDir, 'child-session', { parentSession: 'parent-session' });

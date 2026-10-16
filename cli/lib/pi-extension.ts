@@ -78,7 +78,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("agentic-retro", {
     description: "Run the package-local agentic-retro CLI",
     handler: async (args, ctx) => {
-      execFile(process.execPath, [CLI, ...argv(args)], (error, stdout, stderr) => {
+      execFile(process.execPath, [CLI, ...argv(args)], { cwd: ctx.cwd }, (error, stdout, stderr) => {
         const output = (stdout || stderr).trim();
         if (output) ctx.ui.notify(output, error ? "error" : "info");
       });
@@ -121,7 +121,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_start", (_event, ctx) => {
-    execFile(process.execPath, [CLI, "notice"], (error, stdout) => {
+    execFile(process.execPath, [CLI, "notice", "--cwd", ctx.cwd], (error, stdout) => {
       const line = stdout?.trim();
       if (!error && line) ctx.ui.notify(line, "info");
     });
