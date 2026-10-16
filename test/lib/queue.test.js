@@ -18,6 +18,7 @@ function checkouts(separateGitDir = false, metadataName = 'metadata') {
   });
   const other = join(root, 'other');
   git(['init', '-q', other]);
+  for (const cwd of [main, other]) git(['-C', cwd, 'config', '--local', 'agentic-retro.enabled', 'true']);
   return { main, worktrees, other };
 }
 
@@ -72,7 +73,10 @@ test('newline checkout names retain exact repository identities and distinct rep
   const other = join(root, 'same-first-line\nother');
   const linked = join(root, 'linked\ncheckout');
   const git = (args) => execFileSync('git', args, { stdio: 'pipe' });
-  for (const repo of [main, other]) git(['init', '-q', repo]);
+  for (const repo of [main, other]) {
+    git(['init', '-q', repo]);
+    git(['-C', repo, 'config', '--local', 'agentic-retro.enabled', 'true']);
+  }
   git(['-C', main, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'initial', '--allow-empty']);
   git(['-C', main, 'worktree', 'add', '-q', '-b', 'linked', linked]);
   assert.equal(run(home, ['config', 'set', 'batch.size', '2']).code, 0);

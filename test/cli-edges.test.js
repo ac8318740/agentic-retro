@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tempDir, run, readState } from './helpers/cli.js';
+import { tempDir, run, readState, enabledRepo } from './helpers/cli.js';
 
 test('--help and help print usage to stdout and exit 0', () => {
   for (const args of [['--help'], ['help']]) {
@@ -25,15 +25,16 @@ test('enqueue with malformed JSON on stdin exits 0 and queues nothing', () => {
 
 test('PR mode: a proposal without a PR waits, then the notice after link shows its PR', () => {
   const home = tempDir();
+  const repo = enabledRepo();
   run(home, ['config', 'set', 'output', 'pr']);
-  const id = run(home, ['propose', '--repo', '/work/demo', '--category', 'clarity', '--title', 'Name the loop']).stdout.trim();
+  const id = run(home, ['propose', '--repo', repo, '--category', 'clarity', '--title', 'Name the loop']).stdout.trim();
   assert.match(id, /^P\d+$/);
 
-  run(home, ['notice']);
+  run(home, ['notice', '--cwd', repo]);
   const url = 'https://github.com/example/demo/pull/42';
   assert.equal(run(home, ['link', id, '--pr', url]).code, 0);
 
-  const { code, stdout } = run(home, ['notice']);
+  const { code, stdout } = run(home, ['notice', '--cwd', repo]);
   assert.equal(code, 0);
   assert.ok(stdout.includes(url), `notice names the PR: ${JSON.stringify(stdout)}`);
 });
