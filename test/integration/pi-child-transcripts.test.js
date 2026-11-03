@@ -16,8 +16,8 @@ function piTranscript(dir, name, header) {
   return path;
 }
 
-function enqueuePi(home, sessionId, transcript, cwd) {
-  return run(home, ['enqueue', '--harness', 'pi', '--session', sessionId, '--transcript', transcript, '--cwd', cwd]);
+function enqueuePi(home, sessionId, transcript, cwd, env = {}) {
+  return run(home, ['enqueue', '--harness', 'pi', '--session', sessionId, '--transcript', transcript, '--cwd', cwd], { env });
 }
 
 function batchCount(home) {
@@ -25,7 +25,38 @@ function batchCount(home) {
   return existsSync(dir) ? readdirSync(dir).length : 0;
 }
 
-test('pi child transcripts remain readable context but do not enqueue or create retro batches', async () => {
+for (const marker of ['AC_TEAMS_SOCKET', 'AC_TEAMS_MEMBER', 'AC_TEAMS_TOKEN', 'PI_SUBAGENT_CHILD', 'PI_SUBAGENTS_HERDR_BRIDGE']) {
+  test(`Pi teammate marker ${marker} permits deduplicated collection but RUN suppresses it`, () => {
+    const home = tempDir();
+    const cwd = enabledRepo();
+    const transcript = piTranscript(tempDir(), 'no-parent-header', {});
+    const env = { AC_TEAMS_SOCKET: '', AC_TEAMS_MEMBER: '', AC_TEAMS_TOKEN: '', PI_SUBAGENT_CHILD: '', PI_SUBAGENTS_HERDR_BRIDGE: '', [marker]: '1' };
+    assert.equal(enqueuePi(home, 'retro-child', transcript, cwd, { ...env, AGENTIC_RETRO_RUN: '1' }).code, 0);
+    assert.deepEqual(readState(home, 'queue.json') ?? [], []);
+    assert.equal(enqueuePi(home, 'child', transcript, cwd, env).code, 0);
+    assert.equal(enqueuePi(home, 'child', transcript, cwd, env).code, 0);
+    assert.deepEqual(readState(home, 'queue.json').map((entry) => entry.sessionId), ['child']);
+    assert.equal(batchCount(home), 0);
+    assert.equal(enqueuePi(home, 'top', transcript, cwd, { ...env, [marker]: '' }).code, 0);
+    assert.deepEqual(readState(home, 'queue.json').map((entry) => entry.sessionId), ['child', 'top']);
+  });
+}
+
+test('eligible sandbox teammate stays queued when enforced access refuses independent launch', () => {
+  const home = tempDir();
+  const cwd = enabledRepo();
+  const transcript = piTranscript(tempDir(), 'restricted-teammate', { parentSession: 'parent-session' });
+  assert.equal(run(home, ['config', 'set', 'batch.size', '1']).code, 0);
+  assert.equal(run(home, ['config', 'set', 'runner.harness', 'pi']).code, 0);
+  const result = enqueuePi(home, 'restricted-teammate', transcript, cwd, {
+    AC_TEAMS_MEMBER: 'synthetic-teammate', AC_TEAMS_ACCESS: '{"enforced":true}',
+    AGENTIC_RETRO_DRY_RUN: '', AGENTIC_RETRO_LAUNCHER: join(home, 'never-launch-real-agent'),
+  });
+  assert.match(result.stdout + result.stderr, /sandbox|enforced|access|restriction/i);
+  assert.deepEqual(readState(home, 'queue.json').map((entry) => entry.sessionId), ['restricted-teammate']);
+});
+
+test('Pi parentSession teammate and lead both contribute to a batch, but retro RUN never collects', async () => {
   const digestHome = tempDir();
   const enqueueHome = tempDir();
   const cwd = enabledRepo();
@@ -41,14 +72,17 @@ test('pi child transcripts remain readable context but do not enqueue or create 
   assert.match(childDigest, /echo child-session/);
 
   assert.equal(run(enqueueHome, ['config', 'set', 'batch.size', '2']).code, 0);
-  assert.equal(enqueuePi(enqueueHome, 'child-session', childTranscript, cwd).code, 0);
+  assert.equal(enqueuePi(enqueueHome, 'retro-child', childTranscript, cwd, { AGENTIC_RETRO_RUN: '1' }).code, 0);
   assert.deepEqual(readState(enqueueHome, 'queue.json') ?? [], []);
+  assert.equal(enqueuePi(enqueueHome, 'child-session', childTranscript, cwd).code, 0);
+  const queue = readState(enqueueHome, 'queue.json');
+  assert.deepEqual(queue.map((entry) => entry.sessionId), ['child-session']);
+  assert.equal(queue[0].harness, 'pi');
+  assert.equal(queue[0].transcript, childTranscript);
   assert.equal(batchCount(enqueueHome), 0);
 
   assert.equal(enqueuePi(enqueueHome, 'top-session', topTranscript, cwd).code, 0);
-  const queue = readState(enqueueHome, 'queue.json') ?? [];
-  assert.deepEqual(queue.map((entry) => entry.sessionId), ['top-session']);
-  assert.equal(queue[0].harness, 'pi');
-  assert.equal(queue[0].transcript, topTranscript);
-  assert.equal(batchCount(enqueueHome), 0, 'a child plus one top-level transcript must not reach the enqueue batch threshold');
+  assert.deepEqual(readState(enqueueHome, 'queue.json'), []);
+  assert.equal(batchCount(enqueueHome), 1, 'a teammate plus lead reaches the dry-run batch threshold');
+  assert.deepEqual(readState(enqueueHome, 'batches/1/batch.json').sessions.map((entry) => entry.sessionId), ['child-session', 'top-session']);
 });

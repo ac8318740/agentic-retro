@@ -1,10 +1,8 @@
-// agentic-retro Pi extension, written by `agentic-retro install-pi`.
+// Native Pi extension; `install-pi` also copies it for legacy standalone use.
 // Queues each finished session for a retro and shows new proposals at session start.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFile, spawn } from "node:child_process";
-import { createReadStream } from "node:fs";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -56,22 +54,8 @@ function sendUserMessage(pi: ExtensionAPI, ctx: CommandContext, message: string)
 
 function skillPrompt(skill: string, args: string) {
   const request = args.trim();
-  return `Use the agentic-retro skill at ${skill}.${request ? `\n\nUser request: ${request}` : ""}`;
-}
-
-async function isChildTranscript(path) {
-  try {
-    const lines = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
-    for await (const line of lines) {
-      let entry;
-      try { entry = JSON.parse(line); } catch { continue; }
-      if (entry?.type !== "session") continue;
-      return Object.hasOwn(entry, "parentSession");
-    }
-  } catch {
-    return false;
-  }
-  return false;
+  const cli = [process.execPath, CLI].map((value) => "'" + value.replaceAll("'", "'\\''") + "'").join(" ");
+  return `Use the agentic-retro skill at ${skill}.\nUse the bundled CLI for every agentic-retro command: ${cli}.\nThis Pi extension is already loaded; do not install another copy with install-pi.${request ? `\n\nUser request: ${request}` : ""}`;
 }
 
 export default function (pi: ExtensionAPI) {
@@ -108,7 +92,6 @@ export default function (pi: ExtensionAPI) {
 
     const transcript = ctx.sessionManager.getSessionFile();
     if (!transcript) return; // nothing was said, so nothing was saved
-    if (await isChildTranscript(transcript)) return; // Pi sub-agent sessions are only context for their parent
 
     const child = spawn(process.execPath, [
       CLI, "enqueue", "--harness", "pi",

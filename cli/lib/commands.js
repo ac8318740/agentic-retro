@@ -64,9 +64,10 @@ function codexArgs({ model, permissions }, n, dirs, batchDir) {
 }
 
 // Pi never asks before a tool call, so every permissions mode runs the same way.
-// Pi has no plugin install, so it loads the run skill from this package.
+// Load the bundled skill even when this runner has no native package registration.
 function piArgs({ model }, n) {
-  return ['-p', ...modelFlag('--model', model), '--skill', join(PACKAGE_ROOT, 'skills', 'run'), prompt(n)];
+  const cli = [process.execPath, join(PACKAGE_ROOT, 'cli', 'agentic-retro.js')].map(shellQuote).join(' ');
+  return ['-p', ...modelFlag('--model', model), '--skill', join(PACKAGE_ROOT, 'skills', 'run'), `${prompt(n)} Use this bundled CLI for every agentic-retro command: ${cli}. Await all category results before calling batch finish.`];
 }
 
 const shellQuote = (arg) => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`);

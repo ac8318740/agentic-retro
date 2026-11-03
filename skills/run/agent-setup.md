@@ -15,8 +15,8 @@ Look for work the sessions repeated, or detours an agent took more than once. Go
 - **A command, flag, or path the agent found by trial and error**
     - The agent ran the test command four ways before one worked
 - **Context the user pasted that a file could have held**
-- **The user corrected the agent the same way twice**
-    - The words "always", "never", "next time", or "remember" are strong signals
+- **Attributable human feedback corrected the agent the same way twice**
+    - Words such as "always", "never", "next time", or "remember" are signals only after human attribution is established; unknown or unverified speakers are not proof of a human correction
 - **A skill that gave wrong or incomplete guidance**
 - **A skill that should have loaded and did not**
     - The fix is usually the skill's `description`, which decides when it loads

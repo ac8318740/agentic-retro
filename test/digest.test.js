@@ -64,6 +64,30 @@ test('pi digest keeps user messages, tool calls, edits, and errors', async () =>
   assert.doesNotMatch(digest, /PROSE_MARKER/);
 });
 
+for (const parentSession of [undefined, 'parent-agent']) {
+  test(`Pi role-only messages stay speaker-unverified (${parentSession ? 'teammate' : 'lead'})`, async () => {
+    const path = join(tempDir(), 'mixed-speakers.jsonl');
+    const texts = [
+      'Correction: never change the public API without asking me.',
+      'Parent-agent brief: own test/** only; report to the coordinator.',
+      'Please investigate the failing test.',
+    ];
+    const lines = [
+      { type: 'session', id: 'mixed', cwd: '/work/demo', ...(parentSession ? { parentSession } : {}) },
+      ...texts.map((text, i) => ({ type: 'message', timestamp: `2026-10-01T12:00:0${i}.000Z`, message: { role: 'user', content: [{ type: 'text', text }] } })),
+      { type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: 'tool', name: 'bash', arguments: { command: 'npm test -- --test-concurrency=1' } }] } },
+      { type: 'custom_message', customType: 'ac-teams', content: 'TEAM_NOTIFICATION_NOT_HUMAN_FEEDBACK' },
+    ];
+    writeFileSync(path, lines.map((line) => JSON.stringify(line)).join('\n') + '\n');
+    const digest = await digestFor('pi', 'mixed', path);
+    assert.match(digest, /## User-role messages \(speaker unverified\)/);
+    assert.match(digest, /role[= -]*user[\s\S]*(?:human[\s\S]*agent|agent[\s\S]*human)/i);
+    for (const text of texts) assert.ok(digest.includes(text), 'keep text without inventing its author');
+    assert.match(digest, /bash.*npm test -- --test-concurrency=1/);
+    assert.doesNotMatch(digest, /## (?:Human feedback|User messages)|TEAM_NOTIFICATION_NOT_HUMAN_FEEDBACK/);
+  });
+}
+
 test('a digest truncates long user messages to about 500 characters', async () => {
   const dir = tempDir('agentic-retro-transcript-');
   const path = join(dir, 'long-message.jsonl');
