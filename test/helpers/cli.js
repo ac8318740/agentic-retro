@@ -22,7 +22,7 @@ export function enabledRepo() {
 // Every run gets AGENTIC_RETRO_DRY_RUN=1 so a ready batch never launches real agents.
 export function run(home, args, { env = {}, input = '', cwd } = {}) {
   const baseEnv = { ...process.env };
-  delete baseEnv.AGENTIC_RETRO_RUN;
+  for (const key of ['AGENTIC_RETRO_RUN', 'AC_TEAMS_SOCKET', 'AC_TEAMS_MEMBER', 'AC_TEAMS_TOKEN', 'PI_SUBAGENT_CHILD', 'PI_SUBAGENTS_HERDR_BRIDGE']) delete baseEnv[key];
   const result = spawnSync('node', [CLI, ...args], {
     cwd,
     input,

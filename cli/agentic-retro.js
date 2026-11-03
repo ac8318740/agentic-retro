@@ -12,6 +12,7 @@ import { stats } from './lib/stats.js';
 import { installPi } from './lib/pi.js';
 import { INTRO } from './lib/intro.js';
 import { project } from './lib/project.js';
+import { readStatus, retryBatch, finishBatch } from './lib/batch.js';
 
 const USAGE = `usage: agentic-retro <command>
   about
@@ -26,11 +27,13 @@ const USAGE = `usage: agentic-retro <command>
   notice [--json] [--cwd <dir>]
   stats [--json]
   sync
+  batch status <n> [--json] | retry <n> [--recover-stale] | finish <n> --summary <text>
   install-pi`;
 
-const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status'];
+const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status', 'summary'];
 const options = Object.fromEntries(FLAGS.map((flag) => [flag, { type: 'string' }]));
 options.json = { type: 'boolean' };
+options['recover-stale'] = { type: 'boolean' };
 
 function config([action, key, value]) {
   const current = loadConfig();
@@ -69,6 +72,13 @@ async function main() {
   if (command === 'help' || command === '--help') return console.log(USAGE);
   const { values: flags, positionals } = parseArgs({ args: rest, options, allowPositionals: true });
 
+  if (command === 'batch') {
+    const [action, n] = positionals;
+    if (action === 'status') return console.log(JSON.stringify(readStatus(n), null, 2));
+    if (action === 'retry') return retryBatch(n, flags['recover-stale']);
+    if (action === 'finish') return finishBatch(n, flags.summary);
+    throw new Error(USAGE);
+  }
   if (command === 'setup') return setup();
   if (command === 'config') return config(positionals);
   if (command === 'project') return project(positionals[0], flags.cwd);

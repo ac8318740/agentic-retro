@@ -7,10 +7,11 @@ description: Thin wrapper that walks the user through agentic-retro's config con
 
 Walk the user through agentic-retro's config, one question at a time, then write each answer with `agentic-retro config set <key> <value>`.
 
-## Check the CLI is on PATH
+## Use the bundled CLI
 
-1. Run `command -v agentic-retro`.
-2. If the command is missing, tell the user to run `npm install -g agentic-retro`, then stop.
+Use the package-local CLI invocation supplied by the host. Otherwise resolve `../../cli/agentic-retro.js` relative to this skill directory and run it with Node.js. In every command below, replace `agentic-retro` with that invocation, quoting the executable and path separately.
+
+Run its `about` command to check it works. A native Pi package includes the CLI; do not require a global `agentic-retro` binary or install another copy. If the bundled file or Node.js is missing, report the exact error and stop.
 
 ## Open with the intro
 
@@ -63,9 +64,11 @@ agentic-retro config set notes "ask about this"
 
 Never edit `config.json` by hand. `config set` is the only path that keeps the stored config merged with its defaults correctly.
 
-## Offer the Pi extension
+## Keep one Pi installation
 
-Run `command -v pi`. If it finds Pi, ask whether to install the agentic-retro extension for it. On yes, run `agentic-retro install-pi`.
+Native Pi users install with `pi install npm:agentic-retro`; the package already loads the extension. Do not run `install-pi` as part of native setup.
+
+Only offer `agentic-retro install-pi` when the user explicitly wants the legacy standalone extension instead of the native package. Do not stack native and legacy extensions. For Pi batch runs, explicitly select `runner.harness pi`; installing the extension alone does not change the runner harness.
 
 ## Enable this repository
 
