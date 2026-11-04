@@ -20,9 +20,10 @@ Look for work the sessions repeated, or detours an agent took more than once. Go
 - **A skill that gave wrong or incomplete guidance**
 - **A skill that should have loaded and did not**
     - The fix is usually the skill's `description`, which decides when it loads
-- **Heavy sessions for light results**
-    - Use the metrics: many turns or tokens for few lines changed
-    - Find the step that cost the most and ask what would have skipped it
+- **Repeated corrections or avoidable work**
+    - Find the detour, repeated investigation, or unnecessary check, and ask what would have prevented it without weakening quality or safety
+    - Passing checks do not prove the intended result was good; inspect feedback about the actual user journey
+    - Turns and tokens locate cost, not value. A useful deletion or careful investigation may change few lines
 - **A rule the agent keeps forgetting that a hook or script could enforce**
     - A check enforces a rule every time; instruction text only asks
 
@@ -59,6 +60,10 @@ Every agent-setup proposal carries a risk label.
 - Changes to model choice, billing, or harness settings the user did not list in `editable`
 
 ## How to judge a finding
+
+Before adding instructions, inspect the existing owner and the surrounding work. Distinguish missing or wrong guidance from guidance that was not loaded or applied, and from a tooling defect. Fix that cause at its owner; reuse, simplify, move, or remove existing setup when that works better than adding a rule. Do not infer a loading failure solely from the undesired result.
+
+For a relevant adopted change, check comparable later work in the batch for fewer repeated corrections or detours while preserving the expected result. Verify that the guidance was available then; do not judge earlier work against a later rule. No comparable opportunity means the effect is unknown, not success or failure.
 
 Keep a finding only when every answer is yes.
 

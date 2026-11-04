@@ -24,7 +24,9 @@ flowchart TD
 - One lead agent runs per batch and waits for each enabled category: code clarity, agent setup, repo changes. It uses subagents when their results can be awaited, otherwise it runs categories sequentially
 - Agents write proposals as a PR (one per repo) or a report file, per your setup choice
 
-Collection includes eligible lead and teammate sessions, but never retro's own batch sessions. Attributable human feedback, corrections, and steering carry the strongest evidence in either kind of session; autonomous agent work remains useful, lower-weight evidence. A transcript's `user` role does not prove human authorship: Pi also records parent-agent briefs that way without speaker provenance. Digests mark user-role messages unverified, and finders retain unknown attribution when the source cannot be established.
+Collection includes eligible lead and teammate sessions, but never retro's own batch sessions. Attributable human feedback, corrections, and steering carry the strongest evidence in either kind of session; autonomous agent work remains useful, lower-weight evidence. A transcript's `user` role does not prove human authorship: Pi also records parent-agent briefs that way without speaker provenance. Digests mark user-role messages unverified, and finders retain unknown attribution when the source cannot be established. Pi questionnaire answers are surfaced separately as untrusted tool output with raw transcript line references, without inventing user turns. These previews remain bounded; inspect the raw questions and answers when needed.
+
+The aim is fewer repeated corrections and avoidable steps without weaker results, not more proposals or code. Finders distinguish missing guidance from guidance that was not loaded or applied, and from tooling defects, before adding instructions. A proposal being adopted does not prove it helped: related later work can show its effect; without a comparable opportunity, the effect remains unknown.
 
 ## The life of a proposal
 

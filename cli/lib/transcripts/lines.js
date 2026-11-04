@@ -5,10 +5,12 @@ import { createInterface } from 'node:readline';
 // Calls fn on each parsed line; skips lines that are not JSON. Streams, so 100MB+ transcripts stay cheap.
 export async function eachLine(path, fn) {
   const lines = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
+  let lineNumber = 0;
   for await (const line of lines) {
+    lineNumber++;
     let entry;
     try { entry = JSON.parse(line); } catch { continue; }
-    if (entry && typeof entry === 'object') fn(entry);
+    if (entry && typeof entry === 'object') fn(entry, lineNumber);
   }
 }
 
@@ -20,7 +22,7 @@ export function countLines(text) {
 
 export function emptySession() {
   return {
-    cwd: null, start: null, end: null, userMessages: [], toolCalls: [], edits: [],
+    cwd: null, start: null, end: null, userMessages: [], questionnaires: [], toolCalls: [], edits: [],
     usage: null, turns: { user: 0, assistant: 0 }, subagents: 0,
   };
 }

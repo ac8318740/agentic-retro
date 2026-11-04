@@ -19,11 +19,12 @@ This reads the ledger (accepted, rejected, neutral, open, and legacy expired pro
 
 Cover two things, both from `agentic-retro stats`:
 
-- **Accepted share per category**: accepted divided by accepted plus rejected proposals in `clarity`, `agent-setup`, and `repo-for-agents`
+- **Accepted share per category**: accepted divided by accepted plus rejected proposals in `clarity`, `agent-setup`, and `repo-for-agents`. This measures adoption, not whether later sessions improved
     - Open, neutral, and legacy expired proposals are excluded; inactivity is not feedback
     - A low share suggests rejected changes, not a preference proven by silence; consider how many manual decisions or evidence-backed inferences support it. Use `agentic-retro ledger --json` to distinguish them; inferred rationale is not independent human endorsement
 - **Tokens per line of code over time** – how many tokens each batch spends per line changed, tracked across batches
-    - A rising trend means sessions are costing more for the same amount of code
+    - This is a descriptive cost ratio, not a quality or efficiency score. Deletions, investigations, and different tasks make unlike sessions incomparable; more code is not a better result
+    - Do not claim that adopted proposals reduced rework from these statistics alone. That needs comparable later work showing fewer repeated corrections or avoidable steps without weaker results
 
 Keep the explanation short.
 
