@@ -1,46 +1,58 @@
-// Sync: settle open proposals from their PRs, then expire the stale ones.
+// Sync observable PR state; closure and missing proposal IDs are not rejection.
 import { execFileSync } from 'node:child_process';
-import { loadConfig } from './config.js';
-import { loadLedger, saveLedger, setStatus } from './ledger.js';
+import { loadLedger, saveLedger, setStatus, isManual } from './ledger.js';
 
-// A failed lookup (network, deleted repo) leaves the proposal open for the next sync.
 function viewPr(pr) {
   const gh = process.env.AGENTIC_RETRO_GH || 'gh';
   try {
     const output = execFileSync(gh, ['pr', 'view', pr, '--json', 'state,commits'], { encoding: 'utf8' });
-    return JSON.parse(output);
+    const view = JSON.parse(output);
+    if (!['OPEN', 'CLOSED', 'MERGED'].includes(view?.state) || !Array.isArray(view.commits)) throw new Error('invalid PR response');
+    return view;
   } catch (error) {
     console.error(`agentic-retro: could not check ${pr}: ${error.message.split('\n')[0]}`);
-    return { state: 'OPEN', commits: [] };
+    return null;
   }
 }
 
-// Each proposal is its own commit with its ID in the headline, e.g. "P12: shorten the map skill".
 function commitSurvived(view, id) {
+  if (!/^P[1-9]\d*$/.test(id)) return false;
   const pattern = new RegExp(`\\b${id}\\b`);
-  return view.commits.some((c) => pattern.test(c.messageHeadline));
-}
-
-function outcome(view, id) {
-  if (view.state === 'MERGED') return commitSurvived(view, id) ? 'accepted' : 'rejected';
-  if (view.state === 'CLOSED') return 'rejected';
-  return 'open';
+  return view.commits.some((c) => typeof c?.messageHeadline === 'string' && pattern.test(c.messageHeadline));
 }
 
 export function syncOutcomes() {
   const ledger = loadLedger();
-  const { expireAfterBatches } = loadConfig();
-  const open = () => ledger.proposals.filter((p) => p.status === 'open');
-
   const views = new Map();
-  for (const p of open().filter((p) => p.pr)) {
+  for (const p of ledger.proposals) {
+    if (isManual(p)) continue;
+    if (!p.pr) {
+      if (p.status === 'expired') setStatus(p, 'open');
+      continue;
+    }
     if (!views.has(p.pr)) views.set(p.pr, viewPr(p.pr));
-    const status = outcome(views.get(p.pr), p.id);
-    if (status !== 'open') setStatus(p, status);
-  }
-
-  for (const p of open().filter((p) => !p.pr)) {
-    if (ledger.batchCount - p.batch >= expireAfterBatches) setStatus(p, 'expired');
+    const view = views.get(p.pr);
+    if (!view) {
+      if (p.status === 'expired') setStatus(p, 'open');
+      continue;
+    }
+    if (view.state === 'OPEN') {
+      // Reopening invalidates closure inference, but never a manual decision.
+      if (p.status !== 'open') setStatus(p, 'open');
+    } else if (p.decision?.source === 'inferred') {
+      // Proposal-specific evidence outranks a surviving commit headline.
+      continue;
+    } else if (view.state === 'MERGED' && commitSurvived(view, p.id)) {
+      if (p.status !== 'accepted') setStatus(p, 'accepted', {
+        source: 'sync', reason: 'Proposal ID survives in the merged PR commits.', evidence: [p.pr],
+      });
+    } else {
+      setStatus(p, 'neutral', {
+        source: 'sync',
+        reason: view.state === 'CLOSED' ? 'PR closed; proposal intent awaits inference.' : 'Merged PR lacks proposal ID; intent awaits inference.',
+        evidence: [p.pr],
+      });
+    }
   }
   saveLedger(ledger);
 }
