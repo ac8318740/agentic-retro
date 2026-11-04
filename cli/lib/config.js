@@ -8,7 +8,6 @@ export const DEFAULTS = {
   scope: 'touched',
   output: 'pr',
   autoMergeLowRisk: false,
-  expireAfterBatches: 3,
   editable: [],
   targets: { preset: '~/.claude/skills', note: '' },
   notes: '',

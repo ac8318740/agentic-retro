@@ -4,10 +4,10 @@ import { statePath } from './paths.js';
 import { CATEGORIES, loadLedger } from './ledger.js';
 
 function categoryStats(proposals) {
-  const counts = { accepted: 0, rejected: 0, expired: 0, open: 0 };
+  const counts = { accepted: 0, rejected: 0, neutral: 0, expired: 0, open: 0 };
   for (const p of proposals) counts[p.status] += 1;
-  // Share of settled proposals only: open ones have no verdict yet.
-  const settled = counts.accepted + counts.rejected + counts.expired;
+  // Neutral outcomes and inactivity say nothing about proposal quality.
+  const settled = counts.accepted + counts.rejected;
   return { ...counts, acceptedShare: settled ? counts.accepted / settled : null };
 }
 
@@ -43,7 +43,7 @@ export function collectStats() {
 function formatStats({ categories, batches }) {
   const lines = Object.entries(categories).map(([name, c]) => {
     const share = c.acceptedShare === null ? '-' : `${Math.round(c.acceptedShare * 100)}%`;
-    return `${name}: ${c.accepted} accepted, ${c.rejected} rejected, ${c.expired} expired, ${c.open} open, ${share} accepted`;
+    return `${name}: ${c.accepted} accepted, ${c.rejected} rejected, ${c.neutral} neutral, ${c.expired} expired, ${c.open} open, ${share} accepted`;
   });
   lines.push('tokens per line changed:');
   if (!batches.length) lines.push('  no metrics yet');

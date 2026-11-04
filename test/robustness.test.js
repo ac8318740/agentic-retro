@@ -67,7 +67,7 @@ if (pr === '1') { process.stderr.write('gh: network error\\n'); process.exit(1);
 process.stdout.write(JSON.stringify({ state: 'CLOSED', commits: [] }));
 `;
 
-test('sync keeps going when gh fails for one PR: other PRs update, expiry applies, ledger saved', () => {
+test('sync keeps going when gh fails for one PR: other PRs update, unattended proposals stay open', () => {
   const home = withLedger([
     proposal('P1', { pr: 'https://github.com/x/y/pull/1', commit: 'P1: a' }),
     proposal('P2', { pr: 'https://github.com/x/y/pull/2', commit: 'P2: b' }),
@@ -77,8 +77,8 @@ test('sync keeps going when gh fails for one PR: other PRs update, expiry applie
   writeFileSync(gh, FAILING_GH);
   chmodSync(gh, 0o755);
   run(home, ['sync'], { env: { AGENTIC_RETRO_GH: gh } });
-  assert.equal(proposalById(home, 'P2').status, 'rejected');
-  assert.equal(proposalById(home, 'P3').status, 'expired');
+  assert.equal(proposalById(home, 'P2').status, 'neutral');
+  assert.equal(proposalById(home, 'P3').status, 'open');
   assert.notEqual(proposalById(home, 'P1').status, 'rejected');
 });
 

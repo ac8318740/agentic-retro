@@ -15,9 +15,9 @@ function session(batch, sessionId, { input = 0, output = 0, added = 0, removed =
 }
 
 // clarity: 3 accepted, 1 rejected, 0 expired, 2 open -> share 0.75
-// agent-setup: 1 accepted, 1 rejected, 2 expired, 1 open -> share 0.25
+// agent-setup: 1 accepted, 1 rejected, 2 expired, 1 open -> share 0.5
 const PROPOSALS = [
-  ...['accepted', 'accepted', 'accepted', 'rejected', 'open', 'open'].map((s, i) => proposal(`P${i + 1}`, 'clarity', s)),
+  ...['accepted', 'accepted', 'accepted', 'rejected', 'open', 'open', 'neutral'].map((s, i) => proposal(`P${i + 1}`, 'clarity', s)),
   ...['accepted', 'rejected', 'expired', 'expired', 'open'].map((s, i) => proposal(`P${i + 11}`, 'agent-setup', s)),
 ];
 
@@ -63,10 +63,19 @@ test('stats --json counts proposals per category and status', () => {
   assert.deepEqual(pick(categories['agent-setup']), { accepted: 1, rejected: 1, expired: 2, open: 1 });
 });
 
-test('stats --json accepted share is accepted over settled proposals, ignoring open ones', () => {
+test('stats --json accepted share uses explicit decisions only, not open or expired proposals', () => {
   const { categories } = statsJson(seeded());
   assert.equal(categories.clarity.acceptedShare, 0.75);
-  assert.equal(categories['agent-setup'].acceptedShare, 0.25);
+  assert.equal(categories['agent-setup'].acceptedShare, 0.5);
+});
+
+test('unreviewed categories have no acceptance rate, even with historical expiries', () => {
+  const home = tempDir();
+  writeFileSync(join(home, 'ledger.json'), JSON.stringify({ proposals: [
+    proposal('P1', 'clarity', 'expired'), proposal('P2', 'clarity', 'open'), proposal('P3', 'clarity', 'neutral'),
+  ] }));
+  assert.equal(statsJson(home).categories.clarity.acceptedShare, null);
+  assert.equal(statsJson(home).categories.clarity.neutral, 1);
 });
 
 test('stats --json gives tokens per line changed per batch, oldest first, skipping sessions without data', () => {
@@ -86,7 +95,7 @@ test('stats text output shows each category with its counts and the batch ratios
   for (const n of ['3', '1', '0', '2']) assert.match(clarity, new RegExp(`\\b${n}\\b`));
   assert.match(clarity, /75\s*%|0\.75/);
   assert.match(stdout, /agent-setup/);
-  const order = ['100', '50', '200'].map((ratio) => stdout.search(new RegExp(`\\b${ratio}\\b`)));
-  assert.ok(order.every((i) => i >= 0), `missing a batch ratio in:\n${stdout}`);
-  assert.ok(order[0] < order[1] && order[1] < order[2], `batches not oldest first:\n${stdout}`);
+  assert.deepEqual(stdout.split('\n').filter((line) => line.startsWith('  batch ')), [
+    '  batch 1: 100', '  batch 2: 50', '  batch 3: 200',
+  ]);
 });
