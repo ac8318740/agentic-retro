@@ -168,3 +168,21 @@ Claude Code, Codex, and herdr retain their existing launch behavior; this lifecy
 - Runtime state lives under `~/.agentic-retro/` (override with `AGENTIC_RETRO_HOME`): config, queue, ledger, metrics, batch digests, and reports
 - Repository activation lives in Git's shared local configuration and never enters the tracked checkout
 - Keep runtime state outside repositories; Git ignores its own metadata automatically
+
+## Working on agentic-retro
+
+Run the tests with `npm test`.
+
+- `cli/agentic-retro.js`: parses arguments and routes commands to their modules
+- `cli/lib/`: CLI behavior, including:
+    - `project.js`: repository opt-in shared by all worktrees
+    - `queue.js` and `runner.js`: session collection and batch launch
+    - `batch.js` and `pi-runner.js`: supervised Pi batch state and execution
+    - `digest.js` and `transcripts/`: per-harness transcript parsing and digest generation
+    - `ledger.js` and `outcomes.js`: proposals and their outcomes
+    - `pi-extension.ts`: native Pi integration; `pi.js` installs the legacy standalone extension
+- `skills/`: the `run`, `review`, `setup`, and `retro` skills
+    - `skills/run/SKILL.md` owns the agent's branch, commit, and PR workflow; the CLI does not open PRs
+- `hooks/`: Claude Code and Codex session hooks
+- `docs/adr/`: architecture decision records
+- `test/`: tests, with shared helpers in `test/helpers/`
