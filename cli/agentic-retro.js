@@ -11,24 +11,29 @@ import { notice } from './lib/notice.js';
 import { stats } from './lib/stats.js';
 import { installPi } from './lib/pi.js';
 import { INTRO } from './lib/intro.js';
+import { project } from './lib/project.js';
+import { readStatus, retryBatch, finishBatch } from './lib/batch.js';
 
 const USAGE = `usage: agentic-retro <command>
   about
   setup
+  project enable | disable | status [--cwd <dir>]
   config list | get <key> | set <key> <value>
   enqueue [--harness <h>] [--session <id> --transcript <path> --cwd <dir>]   (or hook JSON on stdin)
   propose --repo <path> --category <c> [--risk low|high] --title <t> [--pr <pr> --commit <msg>]
   mark <id> <accepted|rejected>
   link <id> [--pr <url>] [--commit <sha>]
   ledger [--status <s>[,<s>...]]
-  notice [--json]
+  notice [--json] [--cwd <dir>]
   stats [--json]
   sync
+  batch status <n> [--json] | retry <n> [--recover-stale] | finish <n> --summary <text>
   install-pi`;
 
-const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status'];
+const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status', 'summary'];
 const options = Object.fromEntries(FLAGS.map((flag) => [flag, { type: 'string' }]));
 options.json = { type: 'boolean' };
+options['recover-stale'] = { type: 'boolean' };
 
 function config([action, key, value]) {
   const current = loadConfig();
@@ -67,15 +72,23 @@ async function main() {
   if (command === 'help' || command === '--help') return console.log(USAGE);
   const { values: flags, positionals } = parseArgs({ args: rest, options, allowPositionals: true });
 
+  if (command === 'batch') {
+    const [action, n] = positionals;
+    if (action === 'status') return console.log(JSON.stringify(readStatus(n), null, 2));
+    if (action === 'retry') return retryBatch(n, flags['recover-stale']);
+    if (action === 'finish') return finishBatch(n, flags.summary);
+    throw new Error(USAGE);
+  }
   if (command === 'setup') return setup();
   if (command === 'config') return config(positionals);
+  if (command === 'project') return project(positionals[0], flags.cwd);
   if (command === 'enqueue') return enqueueCommand(flags);
   if (command === 'propose') return console.log(propose(flags));
   if (command === 'mark') return mark(...positionals);
   if (command === 'link') return link(positionals[0], flags);
   if (command === 'ledger') return listProposals(flags.status).forEach((p) => console.log(formatProposal(p)));
   if (command === 'sync') return syncOutcomes();
-  if (command === 'notice') return notice(flags);
+  if (command === 'notice') return notice({ ...flags, cwd: flags.cwd ?? readHook().cwd ?? process.cwd() });
   if (command === 'stats') return stats(flags);
   if (command === 'install-pi') return installPi();
   if (command === 'about') return process.stdout.write(INTRO);

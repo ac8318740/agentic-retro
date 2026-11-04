@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tempDir, run, readState } from './helpers/cli.js';
+import { tempDir, run, readState, enabledRepo } from './helpers/cli.js';
 
 // Claude Code and Codex share one hooks/hooks.json, so the SessionEnd hook passes no
 // --harness. `enqueue` infers the harness from the hook JSON on stdin instead.
@@ -33,7 +33,7 @@ const inferCases = [
 for (const [harness, transcript] of inferCases) {
   test(`enqueue without --harness infers ${harness} from ${transcript}`, () => {
     const home = tempDir();
-    const { code, stderr } = hookEnqueue(home, endPayload('c1', transcript, tempDir()));
+    const { code, stderr } = hookEnqueue(home, endPayload('c1', transcript, enabledRepo()));
     assert.equal(code, 0, stderr);
     const [entry] = queued(home);
     assert.equal(entry.harness, harness);
@@ -50,7 +50,7 @@ test('a null transcript_path is found under $CODEX_HOME/sessions and recorded as
   writeFileSync(rollout, '{}\n');
   writeFileSync(join(day, 'rollout-2026-10-10T09-00-00-other.jsonl'), '{}\n');
 
-  const { code, stderr } = hookEnqueue(home, endPayload('abc-123', null, tempDir()), { CODEX_HOME: codexHome });
+  const { code, stderr } = hookEnqueue(home, endPayload('abc-123', null, enabledRepo()), { CODEX_HOME: codexHome });
   assert.equal(code, 0, stderr);
   const [entry] = queued(home);
   assert.equal(entry.sessionId, 'abc-123');
@@ -61,7 +61,7 @@ test('a null transcript_path is found under $CODEX_HOME/sessions and recorded as
 test('a null transcript_path with no matching rollout still queues the session', () => {
   const home = tempDir();
   const codexHome = tempDir('agentic-retro-codex-');
-  const { code, stderr } = hookEnqueue(home, endPayload('lost-1', null, tempDir()), { CODEX_HOME: codexHome });
+  const { code, stderr } = hookEnqueue(home, endPayload('lost-1', null, enabledRepo()), { CODEX_HOME: codexHome });
   assert.equal(code, 0, stderr);
   const [entry] = queued(home);
   assert.equal(entry.sessionId, 'lost-1');

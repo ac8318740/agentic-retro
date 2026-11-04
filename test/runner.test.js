@@ -4,7 +4,7 @@ import { writeFileSync, readFileSync, existsSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEFAULTS } from '../cli/lib/config.js';
 import { buildCommand } from '../cli/lib/runner.js';
-import { tempDir, run, readState } from './helpers/cli.js';
+import { tempDir, run, readState, enabledRepo } from './helpers/cli.js';
 
 // buildCommand(config, batchDir, n) -> { file, args, env, cwd } (herdr: a list of such steps).
 // Tests assert the parts that matter, not full argv, so flags can follow each harness's --help.
@@ -121,7 +121,7 @@ test('a ready batch syncs outcomes, then launches the agent detached with output
     { id: 'P1', batch: 0, repo: '/r', category: 'clarity', risk: null, title: 'stale', status: 'open',
       createdAt: '2026-01-01T00:00:00.000Z', statusAt: null, pr: null, commit: null }] }));
   run(home, ['config', 'set', 'batch.size', '1']);
-  const cwd = tempDir('agentic-retro-plain-');
+  const cwd = enabledRepo();
 
   const started = Date.now();
   const { code, stderr } = run(home, ['enqueue', '--harness', 'claude', '--session', 's1',

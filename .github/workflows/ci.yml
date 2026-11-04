@@ -11,6 +11,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check release version bumps
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA"
+          node scripts/check-release-versions.js \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --target "$TARGET_BRANCH"
 
       - uses: actions/setup-node@v4
         with:

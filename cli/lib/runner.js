@@ -1,6 +1,6 @@
 // Starts a batch run: writes the batch manifest, syncs outcomes and digests, then launches the batch agent.
 import { spawn, execFileSync } from 'node:child_process';
-import { openSync, appendFileSync } from 'node:fs';
+import { openSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeJson, statePath } from './paths.js';
 import { nextBatch } from './ledger.js';
@@ -8,6 +8,7 @@ import { loadConfig } from './config.js';
 import { syncOutcomes } from './outcomes.js';
 import { writeBatchDigests } from './digest.js';
 import { buildCommand, PANE_ID } from './commands.js';
+import { launchPi, batchDir } from './batch.js';
 
 export { buildCommand };
 
@@ -43,6 +44,15 @@ export async function startBatch(sessions) {
   await writeBatchDigests(n, sessions);
   const command = buildCommand(loadConfig(), statePath('batches', String(n)), n, sessions);
   if (Array.isArray(command)) runHerdr(command);
+  else if (loadConfig().runner.harness === 'pi') await launchPi(n, command);
   else launch(command);
   return n;
+}
+
+export async function resumePiBatch(n, options) {
+  const config = loadConfig();
+  if (config.runner.harness !== 'pi') throw new Error('Batch retry requires runner.harness pi');
+  const sessions = JSON.parse(readFileSync(join(batchDir(n), 'batch.json'), 'utf8')).sessions;
+  if (!Array.isArray(sessions) || !sessions.length) throw new Error('Batch manifest needs sessions');
+  return launchPi(n, buildCommand(config, batchDir(n), n, sessions), options);
 }

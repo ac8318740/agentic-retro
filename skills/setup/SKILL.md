@@ -7,10 +7,11 @@ description: Thin wrapper that walks the user through agentic-retro's config con
 
 Walk the user through agentic-retro's config, one question at a time, then write each answer with `agentic-retro config set <key> <value>`.
 
-## Check the CLI is on PATH
+## Use the bundled CLI
 
-1. Run `command -v agentic-retro`.
-2. If the command is missing, tell the user to run `npm install -g agentic-retro`, then stop.
+Use the package-local CLI invocation supplied by the host. Otherwise resolve `../../cli/agentic-retro.js` relative to this skill directory and run it with Node.js. In every command below, replace `agentic-retro` with that invocation, quoting the executable and path separately.
+
+Run its `about` command to check it works. A native Pi package includes the CLI; do not require a global `agentic-retro` binary or install another copy. If the bundled file or Node.js is missing, report the exact error and stop.
 
 ## Open with the intro
 
@@ -25,7 +26,7 @@ Offer the presets below for each question, and let the user type a different ans
 1. **Batch size** – sessions per batch, default 5
 2. **Grouping** – `repo` (default) or `global`
 3. **Runner harness** – `claude`, `codex`, or `pi`; add `herdr` to the choices only if `command -v herdr` finds it
-4. **Model** – `opus` or `default`; `opus` applies to Claude, Codex and Pi use their own default unless given a model name they understand (for example `o3`)
+4. **Model** – `opus` or `default`; `opus` applies to Claude, Codex and Pi use their default unless given a model name they understand (for example `o3`)
 5. **Runner permissions** – how much the batch agent can do without asking:
     - `auto` (default) – the harness's own auto mode
     - `scoped` – file edits, plus only `git`, `gh`, and `agentic-retro` commands
@@ -63,9 +64,19 @@ agentic-retro config set notes "ask about this"
 
 Never edit `config.json` by hand. `config set` is the only path that keeps the stored config merged with its defaults correctly.
 
-## Offer the Pi extension
+## Keep one Pi installation
 
-Run `command -v pi`. If it finds Pi, ask whether to install the agentic-retro extension for it. On yes, run `agentic-retro install-pi`.
+Native Pi users install with `pi install npm:agentic-retro`; the package already loads the extension. Do not run `install-pi` as part of native setup.
+
+Only offer `agentic-retro install-pi` when the user explicitly wants the legacy standalone extension instead of the native package. Do not stack native and legacy extensions. For Pi batch runs, explicitly select `runner.harness pi`; installing the extension alone does not change the runner harness.
+
+## Enable this repository
+
+Every repository starts disabled. Ask whether the user wants to enable collection in the current repository.
+
+On yes, run `agentic-retro project enable` from that repository. All its worktrees share this untracked Git setting.
+
+On no, leave the repository disabled. Global configuration alone does not enable collection.
 
 ## Finish
 
