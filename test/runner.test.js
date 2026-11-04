@@ -118,7 +118,7 @@ test('a ready batch syncs outcomes, then launches the agent detached with output
   writeFileSync(fake, FAKE_AGENT);
   chmodSync(fake, 0o755);
   writeFileSync(join(home, 'ledger.json'), JSON.stringify({ nextId: 2, batchCount: 3, proposals: [
-    { id: 'P1', batch: 0, repo: '/r', category: 'clarity', risk: null, title: 'stale', status: 'open',
+    { id: 'P1', batch: 0, repo: '/r', category: 'clarity', risk: null, title: 'stale', status: 'expired',
       createdAt: '2026-01-01T00:00:00.000Z', statusAt: null, pr: null, commit: null }] }));
   run(home, ['config', 'set', 'batch.size', '1']);
   const cwd = enabledRepo();
@@ -131,7 +131,7 @@ test('a ready batch syncs outcomes, then launches the agent detached with output
 
   const ledger = readState(home, 'ledger.json');
   assert.equal(ledger.batchCount, 4);
-  assert.equal(ledger.proposals[0].status, 'expired', 'outcome sync ran');
+  assert.equal(ledger.proposals[0].status, 'open', 'outcome sync recovers legacy expiry before review');
 
   const batchDir = join(home, 'batches', '4');
   assert.ok(existsSync(join(batchDir, 'batch.json')));

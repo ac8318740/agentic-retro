@@ -35,11 +35,10 @@ Offer the presets below for each question, and let the user type a different ans
 7. **Scope** – how far clarity proposals look: `touched`, `neighbours`, or `two-layers`
 8. **Output** – `pr` (opens a pull request per batch) or `report` (writes a report file)
 9. **Auto-merge** – merge low-risk agent-setup PRs automatically? Default off
-10. **Expire after** – batches an open proposal waits before it expires with no action, default 3
-11. **Targets** – where agent-setup proposals go: `~/.claude/skills`, `~/.codex/skills`, or a plugin repo path
+10. **Targets** – where agent-setup proposals go: `~/.claude/skills`, `~/.codex/skills`, or a plugin repo path
     - Also ask for a free-text note the batch agent reads, for example: "I maintain the acme-skills plugin; send fixes to its repo at ~/code/acme-skills"
-12. **Editable paths** – which paths proposals can write to, as a JSON list; every other path stays read-only
-13. **Notes** – free text, anything else the batch agents should know
+11. **Editable paths** – which paths proposals can write to, as a JSON list; every other path stays read-only
+12. **Notes** – free text, anything else the batch agents should know
 
 Write each answer right after the user gives it:
 
@@ -55,12 +54,13 @@ agentic-retro config set categories.repo-for-agents true
 agentic-retro config set scope touched
 agentic-retro config set output pr
 agentic-retro config set autoMergeLowRisk false
-agentic-retro config set expireAfterBatches 3
 agentic-retro config set targets.preset ~/.claude/skills
 agentic-retro config set targets.note "I maintain the acme-skills plugin; send fixes to its repo at ~/code/acme-skills"
 agentic-retro config set editable '["~/.claude/skills"]'
 agentic-retro config set notes "ask about this"
 ```
+
+Proposals stay open until reviewed; inactivity never expires them.
 
 Never edit `config.json` by hand. `config set` is the only path that keeps the stored config merged with its defaults correctly.
 

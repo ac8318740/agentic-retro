@@ -37,12 +37,13 @@ function setup({ proposals, prs = {}, batchCount = 3, config }) {
   const ledger = () => JSON.parse(readFileSync(join(home, 'ledger.json'), 'utf8'));
   const status = (id) => ledger().proposals.find((p) => p.id === id);
   const ghCalls = () => readFileSync(join(home, 'gh-calls.log'), 'utf8').trim().split('\n').filter(Boolean);
-  return { run, ledger, status, ghCalls };
+  const setPrs = (next) => writeFileSync(join(home, 'prs.json'), JSON.stringify(next));
+  return { run, ledger, status, ghCalls, setPrs };
 }
 
 const commits = (...headlines) => headlines.map((messageHeadline) => ({ messageHeadline }));
 
-test('merged PR: proposals whose commit survived are accepted, dropped ones rejected', () => {
+test('merged PR: surviving proposal IDs are accepted; missing IDs are neutral', () => {
   const s = setup({
     proposals: [
       proposal('P1', { pr: 'https://github.com/o/r/pull/7', commit: 'P1: shorten the map skill' }),
@@ -52,17 +53,18 @@ test('merged PR: proposals whose commit survived are accepted, dropped ones reje
   });
   s.run('sync');
   assert.equal(s.status('P1').status, 'accepted');
-  assert.equal(s.status('P2').status, 'rejected');
+  assert.equal(s.status('P2').status, 'neutral');
 });
 
-test('closed unmerged PR: every proposal in it is rejected', () => {
+test('closed unmerged PR: unknown intent is neutral per proposal', () => {
   const s = setup({
     proposals: [proposal('P1', { pr: '8', commit: 'P1: a' }), proposal('P2', { pr: '8', commit: 'P2: b' })],
     prs: { 8: { state: 'CLOSED', commits: commits('P1: a', 'P2: b') } },
   });
   s.run('sync');
-  assert.equal(s.status('P1').status, 'rejected');
-  assert.equal(s.status('P2').status, 'rejected');
+  assert.equal(s.status('P1').status, 'neutral');
+  assert.equal(s.status('P2').status, 'neutral');
+  assert.match(s.status('P1').decision.reason, /intent|infer/i);
 });
 
 test('open PR: proposals stay open and statusAt is untouched', () => {
@@ -102,8 +104,7 @@ test('every status change sets statusAt to now', () => {
   assert.ok(at >= before - 1000 && at <= Date.now() + 1000, `statusAt not current: ${s.status('P1').statusAt}`);
 });
 
-test('stale proposal without a PR expires, but one with an open PR stays open', () => {
-  // batchCount 3: whether or not sync increments it, batch 0 is >= 3 old and batch 2 is < 3 old.
+test('unattended proposals stay open regardless of age or legacy expiry config', () => {
   const s = setup({
     proposals: [
       proposal('P1', { batch: 0 }),
@@ -112,10 +113,12 @@ test('stale proposal without a PR expires, but one with an open PR stays open', 
       proposal('P4', { batch: 0, status: 'rejected', statusAt: '2026-01-02T00:00:00.000Z' }),
     ],
     prs: { 13: { state: 'OPEN', commits: commits('P3: a') } },
+    batchCount: 100,
+    config: { expireAfterBatches: 1 },
   });
   s.run('sync');
-  assert.equal(s.status('P1').status, 'expired');
-  assert.ok(s.status('P1').statusAt, 'expiry sets statusAt');
+  assert.equal(s.status('P1').status, 'open');
+  assert.equal(s.status('P1').statusAt, null);
   assert.equal(s.status('P2').status, 'open');
   assert.equal(s.status('P3').status, 'open');
   assert.equal(s.status('P3').statusAt, null);
@@ -123,18 +126,38 @@ test('stale proposal without a PR expires, but one with an open PR stays open', 
   assert.equal(s.status('P4').statusAt, '2026-01-02T00:00:00.000Z');
 });
 
-test('expireAfterBatches comes from config', () => {
+test('sync recovers historical expiries and resolves their PRs without overriding explicit decisions', () => {
+  const expired = { status: 'expired', statusAt: '2026-01-02T00:00:00.000Z' };
   const s = setup({
-    proposals: [proposal('P1', { batch: 9 }), proposal('P2', { batch: 0 })],
-    batchCount: 10,
-    config: { expireAfterBatches: 20 },
+    proposals: [
+      proposal('P1', { ...expired, pr: '15' }),
+      proposal('P2', { ...expired, pr: '16' }),
+      proposal('P3', { ...expired, pr: '16' }),
+      proposal('P4', { ...expired, pr: '17' }),
+      proposal('P5', expired),
+      proposal('P6', { status: 'accepted', pr: '18' }),
+      proposal('P7', { status: 'rejected', pr: '19' }),
+      proposal('P8', { ...expired, pr: '20' }), // lookup fails: still pending, not rejected
+    ],
+    prs: {
+      15: { state: 'OPEN', commits: [] },
+      16: { state: 'MERGED', commits: commits('P2: kept') },
+      17: { state: 'CLOSED', commits: [] },
+    },
   });
   s.run('sync');
-  assert.equal(s.status('P1').status, 'open');
-  assert.equal(s.status('P2').status, 'open');
+  for (const id of ['P1', 'P5', 'P8']) assert.equal(s.status(id).status, 'open');
+  assert.equal(s.status('P2').status, 'accepted');
+  for (const id of ['P3', 'P4']) assert.equal(s.status(id).status, 'neutral');
+  assert.equal(s.status('P6').status, 'accepted');
+  assert.equal(s.status('P7').status, 'rejected');
+  assert.equal(s.ghCalls().length, 4, 'shared PR checked once; explicit decisions not checked');
+  const at = s.status('P1').statusAt;
+  s.run('sync');
+  assert.equal(s.status('P1').statusAt, at, 'recovery is idempotent');
 });
 
-test('sync results appear in the never-re-propose lists', () => {
+test('sync separates explicit rejection from pending proposals for duplicate filtering', () => {
   const s = setup({
     proposals: [
       proposal('P1', { pr: '14', commit: 'P1: a', title: 'shorten the map skill' }),
@@ -144,12 +167,97 @@ test('sync results appear in the never-re-propose lists', () => {
     prs: { 14: { state: 'CLOSED', commits: [] } },
   });
   s.run('sync');
+  s.run('mark', 'P1', 'rejected');
   const rejected = s.run('ledger', '--status', 'rejected');
-  const expired = s.run('ledger', '--status', 'expired');
+  const open = s.run('ledger', '--status', 'open');
   assert.match(rejected, /P1/);
   assert.match(rejected, /shorten the map skill/);
   assert.doesNotMatch(rejected, /P2|P3/);
-  assert.match(expired, /P2/);
-  assert.match(expired, /add a lint for dashes/);
-  assert.doesNotMatch(expired, /P1|P3/);
+  assert.match(open, /P2/);
+  assert.match(open, /add a lint for dashes/);
+  assert.match(open, /P3/);
+  assert.doesNotMatch(open, /P1/);
+  assert.doesNotMatch(s.run('ledger', '--status', 'expired'), /P\d/);
+});
+
+test('sync preserves inferred mixed outcomes, reopens them, and protects manual decisions', () => {
+  const s = setup({
+    proposals: [proposal('P1', { pr: '21' }), proposal('P2', { pr: '21' }), proposal('P3', { pr: '21' })],
+    prs: { 21: { state: 'CLOSED', commits: [] } },
+  });
+  s.run('sync');
+  const neutral = s.status('P1');
+  s.run('sync');
+  assert.deepEqual(s.status('P1'), neutral, 'neutral sync must not churn timestamps');
+  const evidence = 'https://github.com/example/project/pull/21#issuecomment-1';
+  s.run('resolve', 'P1', 'accepted', '--reason', 'Replacement keeps documentation', '--evidence', evidence);
+  s.run('resolve', 'P2', 'rejected', '--reason', 'Maintainer rejected automatic installs', '--evidence', evidence);
+  s.run('mark', 'P3', 'rejected');
+  const settled = s.ledger().proposals;
+  s.run('sync');
+  assert.deepEqual(s.ledger().proposals, settled);
+  const manual = s.status('P3');
+  s.setPrs({ 21: { state: 'OPEN', commits: [] } });
+  s.run('sync');
+  for (const id of ['P1', 'P2']) {
+    assert.equal(s.status(id).status, 'open');
+    assert.equal(s.status(id).decision, undefined);
+  }
+  assert.deepEqual(s.status('P3'), manual);
+  const reopened = s.ledger().proposals;
+  s.run('sync');
+  assert.deepEqual(s.ledger().proposals, reopened);
+  s.setPrs({ 21: { state: 'MERGED', commits: commits('P1: docs') } });
+  s.run('sync');
+  assert.equal(s.status('P1').status, 'accepted');
+  assert.equal(s.status('P2').status, 'neutral');
+  assert.deepEqual(s.status('P3'), manual);
+  const merged = s.ledger().proposals;
+  s.run('sync');
+  assert.deepEqual(s.ledger().proposals, merged, 'merged sync is idempotent too');
+});
+
+test('a surviving merged ID does not override stronger proposal-specific inference', () => {
+  const s = setup({
+    proposals: [proposal('P1', { pr: '23' }), proposal('P2', { pr: '23' }), proposal('P3', { pr: '23' })],
+    prs: { 23: { state: 'MERGED', commits: commits('P1: docs', 'P2: installs', 'P3: migration') } },
+  });
+  for (const [id, status, reason] of [
+    ['P1', 'accepted', 'Documentation adopted in a replacement'],
+    ['P2', 'rejected', 'Install behavior reverted despite its surviving commit headline'],
+    ['P3', 'neutral', 'Source changes conflict with the closure explanation'],
+  ]) {
+    s.run('resolve', id, status, '--reason', reason, '--evidence', 'https://github.com/example/project/pull/23');
+  }
+  const inferred = s.ledger().proposals;
+  s.run('sync');
+  assert.deepEqual(s.ledger().proposals, inferred);
+  s.run('sync');
+  assert.deepEqual(s.ledger().proposals, inferred, 'repeated sync preserves reasons, evidence, and timestamps');
+});
+
+test('failed or malformed PR lookups preserve inferred evidence, not reopen or reject it', () => {
+  const s = setup({ proposals: [proposal('P1', { pr: '22' })] });
+  s.run('resolve', 'P1', 'neutral', '--reason', 'Conflicting closure comments need source verification',
+    '--evidence', 'https://github.com/example/project/pull/22');
+  const inferred = s.status('P1');
+  s.run('sync');
+  assert.deepEqual(s.status('P1'), inferred);
+  s.setPrs({ 22: { state: 'unexpected', commits: [] } });
+  s.run('sync');
+  assert.deepEqual(s.status('P1'), inferred);
+  s.setPrs({ 22: { state: 'CLOSED', commits: [] } });
+  s.run('sync');
+  assert.deepEqual(s.status('P1'), inferred);
+  s.setPrs({ 22: { state: 'OPEN', commits: [] } });
+  s.run('sync');
+  assert.equal(s.status('P1').status, 'open');
+});
+
+test('legacy accepted and rejected entries without provenance refuse inference', () => {
+  const s = setup({ proposals: [proposal('P1', { status: 'accepted' }), proposal('P2', { status: 'rejected' })] });
+  const before = s.ledger().proposals;
+  for (const id of ['P1', 'P2']) assert.throws(() => s.run('resolve', id, 'neutral', '--reason', 'Uncertain',
+    '--evidence', 'https://github.com/example/project/pull/1'), /manual decision/);
+  assert.deepEqual(s.ledger().proposals, before);
 });

@@ -13,7 +13,7 @@ flowchart TD
     C -->|no| Z
     C -->|yes| D["CLI writes digests and metrics,<br/>and updates past proposal outcomes"]
     D --> E["Runner starts one lead agent;<br/>it reviews each enabled category<br/>(Claude, Codex, Pi, or herdr pane)"]
-    E --> F["Lead writes proposals,<br/>skipping anything rejected or expired before"]
+    E --> F["Lead writes proposals,<br/>skipping duplicate pending or rejected changes"]
     F --> G["Output: one PR per repo, or a report file"]
     G --> H["Next session start: hook prints<br/>'3 new proposals: link'"]
     H --> I["User reviews proposals"]
@@ -31,14 +31,23 @@ Collection includes eligible lead and teammate sessions, but never retro's own b
 ```mermaid
 stateDiagram-v2
     [*] --> open
-    open --> accepted: merged, or user says yes
-    open --> rejected: closed, removed, or user says no
-    open --> expired: 3 batches with no action
+    open --> accepted: merged surviving ID, adoption evidence, or manual yes
+    open --> neutral: closed or merged without proposal ID
+    neutral --> accepted: adoption evidence
+    neutral --> rejected: evidence that this change was declined
+    neutral --> open: PR reopened
+    open --> rejected: manual no
 ```
 
 - Every proposal starts `open` in the ledger (`~/.agentic-retro/ledger.json`)
-- It becomes `accepted` or `rejected` once you act on it, or `expired` after 3 batches with no action (configurable)
-- agentic-retro never re-proposes a rejected or expired item
+- Untouched PRs and reports stay open, however long you wait. Closure, silence, and a missing proposal ID are not rejection
+- `sync` accepts a proposal whose ID survives in merged PR commits. Closed PRs and merged PRs without that ID become `neutral`, pending inference; reopened PRs return to `open`
+- The scheduled `run` agent automatically infers each proposal's outcome from closure explanations and current or replacement source. It records `accepted`, `rejected`, or `neutral` with a reason, evidence URLs, and `inferred` provenance. A mixed PR can adopt documentation while declining automatic installs. Ambiguity remains neutral and is revisited each run
+- `mark` records an authoritative manual decision. Neither inference nor sync overrides it. Legacy accepted/rejected entries without provenance are protected too; old automatic verdicts need separate, backed-up historical reconciliation
+- `sync` recovers legacy `expired` entries as pending before checking PR state. Old `expireAfterBatches` settings are ignored. It does not invoke a model; semantic inference runs in the existing batch agent
+- agentic-retro suppresses duplicate pending or rejected changes, not whole topics. A distinct follow-on improvement can reference a prior proposal without repeating its patch. Changes requiring an unmerged proposal are deferred until their prerequisite lands
+- Acceptance rates use only accepted and rejected proposals; open, neutral, and legacy expired proposals do not count as negative feedback. Inferred outcomes are interpretations, not independent human endorsement; inspect their provenance with `ledger --json`
+- A no-proposals review records the candidates checked and why they failed the category criteria; it does not imply there is nothing left to improve
 
 ## Install
 
@@ -134,9 +143,10 @@ Using Codex? It asks you to trust the new session-end hook the first time a sess
 - `agentic-retro enqueue` – add a finished session to the queue (hooks call this)
 - `agentic-retro propose` – record a new proposal (batch agents call this)
 - `agentic-retro link <id>` – attach a PR and commit to a proposal
-- `agentic-retro mark <id> <accepted|rejected>` – record a decision on a proposal
-- `agentic-retro ledger` – list proposals, filtered by status
-- `agentic-retro sync` – refresh proposal outcomes from GitHub, then expire stale ones
+- `agentic-retro mark <id> <accepted|rejected>` – record an authoritative manual decision on a proposal
+- `agentic-retro resolve <id> <accepted|rejected|neutral> --reason <text> --evidence <https-url>` – record the batch agent's inference (repeat `--evidence` for multiple sources). Requires a proposal ID, nonblank reason (at most 4000 characters, no control characters), and 1 to 20 HTTPS evidence URLs without credentials. Evidence is stored, not fetched or executed; the agent must assess its relevance and attribution
+- `agentic-retro ledger [--status <s>[,<s>...]] [--json]` – list proposals; JSON includes reasons, evidence, and decision provenance
+- `agentic-retro sync` – refresh observable PR state, leave unknown closure intent neutral, and recover legacy inactivity expiries
 - `agentic-retro notice` – the session-start one-line proposal count (hooks call this)
 - `agentic-retro stats` – acceptance rate per category, and tokens per changed line
 - `agentic-retro install-pi` – write a legacy standalone Pi extension (not needed for native packages)
@@ -168,3 +178,21 @@ Claude Code, Codex, and herdr retain their existing launch behavior; this lifecy
 - Runtime state lives under `~/.agentic-retro/` (override with `AGENTIC_RETRO_HOME`): config, queue, ledger, metrics, batch digests, and reports
 - Repository activation lives in Git's shared local configuration and never enters the tracked checkout
 - Keep runtime state outside repositories; Git ignores its own metadata automatically
+
+## Working on agentic-retro
+
+Run the tests with `npm test`.
+
+- `cli/agentic-retro.js`: parses arguments and routes commands to their modules
+- `cli/lib/`: CLI behavior, including:
+    - `project.js`: repository opt-in shared by all worktrees
+    - `queue.js` and `runner.js`: session collection and batch launch
+    - `batch.js` and `pi-runner.js`: supervised Pi batch state and execution
+    - `digest.js` and `transcripts/`: per-harness transcript parsing and digest generation
+    - `ledger.js` and `outcomes.js`: proposals and their outcomes
+    - `pi-extension.ts`: native Pi integration; `pi.js` installs the legacy standalone extension
+- `skills/`: the `run`, `review`, `setup`, and `retro` skills
+    - `skills/run/SKILL.md` owns the agent's branch, commit, and PR workflow; the CLI does not open PRs
+- `hooks/`: Claude Code and Codex session hooks
+- `docs/adr/`: architecture decision records
+- `test/`: tests, with shared helpers in `test/helpers/`

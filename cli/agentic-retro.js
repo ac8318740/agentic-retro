@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 import { loadConfig, getKey, setKey } from './lib/config.js';
 import { setup } from './lib/setup.js';
 import { enqueue } from './lib/queue.js';
-import { propose, mark, link, listProposals, formatProposal } from './lib/ledger.js';
+import { propose, mark, resolve, link, listProposals, formatProposal } from './lib/ledger.js';
 import { syncOutcomes } from './lib/outcomes.js';
 import { notice } from './lib/notice.js';
 import { stats } from './lib/stats.js';
@@ -21,18 +21,20 @@ const USAGE = `usage: agentic-retro <command>
   config list | get <key> | set <key> <value>
   enqueue [--harness <h>] [--session <id> --transcript <path> --cwd <dir>]   (or hook JSON on stdin)
   propose --repo <path> --category <c> [--risk low|high] --title <t> [--pr <pr> --commit <msg>]
-  mark <id> <accepted|rejected>
+  mark <id> <accepted|rejected>   (manual decision; authoritative)
+  resolve <id> <accepted|rejected|neutral> --reason <text> --evidence <https-url> [--evidence <https-url>...]
   link <id> [--pr <url>] [--commit <sha>]
-  ledger [--status <s>[,<s>...]]
+  ledger [--status <s>[,<s>...]] [--json]
   notice [--json] [--cwd <dir>]
   stats [--json]
   sync
   batch status <n> [--json] | retry <n> [--recover-stale] | finish <n> --summary <text>
   install-pi`;
 
-const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status', 'summary'];
+const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status', 'summary', 'reason'];
 const options = Object.fromEntries(FLAGS.map((flag) => [flag, { type: 'string' }]));
 options.json = { type: 'boolean' };
+options.evidence = { type: 'string', multiple: true };
 options['recover-stale'] = { type: 'boolean' };
 
 function config([action, key, value]) {
@@ -85,8 +87,15 @@ async function main() {
   if (command === 'enqueue') return enqueueCommand(flags);
   if (command === 'propose') return console.log(propose(flags));
   if (command === 'mark') return mark(...positionals);
+  if (command === 'resolve') {
+    if (positionals.length !== 2) throw new Error(USAGE);
+    return resolve(positionals[0], positionals[1], flags);
+  }
   if (command === 'link') return link(positionals[0], flags);
-  if (command === 'ledger') return listProposals(flags.status).forEach((p) => console.log(formatProposal(p)));
+  if (command === 'ledger') {
+    const proposals = listProposals(flags.status);
+    return flags.json ? console.log(JSON.stringify(proposals, null, 2)) : proposals.forEach((p) => console.log(formatProposal(p)));
+  }
   if (command === 'sync') return syncOutcomes();
   if (command === 'notice') return notice({ ...flags, cwd: flags.cwd ?? readHook().cwd ?? process.cwd() });
   if (command === 'stats') return stats(flags);

@@ -96,3 +96,69 @@ test('ledger --status shows only proposals with that status', () => {
   assert.ok(stdout.includes('Second idea'));
   assert.ok(!stdout.includes('First idea'));
 });
+
+const evidence = 'https://github.com/example/project/pull/1#issuecomment-2';
+const resolve = (home, id, status, reason = 'Replacement retains documentation only') =>
+  run(home, ['resolve', id, status, '--reason', reason, '--evidence', evidence]);
+
+test('inferred mixed outcomes retain per-proposal evidence and are idempotent', () => {
+  const home = tempDir();
+  propose(home, { title: 'Clarify docs' });
+  propose(home, { title: 'Auto-install plugins' });
+  assert.equal(resolve(home, 'P1', 'accepted').code, 0);
+  assert.equal(resolve(home, 'P2', 'rejected', 'Maintainer explicitly rejected hidden auto-installs').code, 0);
+  const before = proposals(home);
+  assert.deepEqual(before.map((p) => p.status), ['accepted', 'rejected']);
+  assert.equal(before[0].decision.source, 'inferred');
+  assert.deepEqual(before[0].decision.evidence, [evidence]);
+  assert.equal(resolve(home, 'P1', 'accepted').code, 0);
+  assert.deepEqual(proposals(home), before);
+  const json = run(home, ['ledger', '--json']);
+  assert.equal(json.code, 0);
+  assert.deepEqual(JSON.parse(json.stdout), before);
+  const second = 'https://example.org/commit/123';
+  const args = ['resolve', 'P1', 'accepted', '--reason', 'Two sources confirm adoption'];
+  assert.equal(run(home, [...args, '--evidence', evidence, '--evidence', second]).code, 0);
+  const twoSources = proposals(home);
+  assert.equal(run(home, [...args, '--evidence', second, '--evidence', evidence, '--evidence', evidence]).code, 0);
+  assert.deepEqual(proposals(home), twoSources, 'evidence order and duplicates do not churn timestamps');
+});
+
+test('neutral inference can be revised, but manual decisions cannot', () => {
+  const home = tempDir();
+  propose(home);
+  assert.equal(resolve(home, 'P1', 'neutral', 'Closure reason is ambiguous').code, 0);
+  assert.equal(resolve(home, 'P1', 'accepted').code, 0);
+  assert.equal(run(home, ['mark', 'P1', 'rejected']).code, 0);
+  const manual = proposals(home);
+  assert.equal(manual[0].decision.source, 'manual');
+  assert.notEqual(resolve(home, 'P1', 'accepted').code, 0);
+  assert.deepEqual(proposals(home), manual);
+  assert.equal(run(home, ['mark', 'P1', 'rejected']).code, 0);
+  assert.deepEqual(proposals(home), manual);
+});
+
+test('resolver validates ID, status, rationale, and evidence without changing state', () => {
+  const home = tempDir();
+  propose(home);
+  const before = proposals(home);
+  for (const args of [
+    ['P1', 'expired', '--reason', 'No', '--evidence', evidence],
+    ['P1; rm -rf /', 'accepted', '--reason', 'No', '--evidence', evidence],
+    ['P9', 'accepted', '--reason', 'No', '--evidence', evidence],
+    ['P1', 'accepted', '--reason', '  ', '--evidence', evidence],
+    ['P1', 'accepted', '--reason', 'x'.repeat(4001), '--evidence', evidence],
+    ['P1', 'accepted', '--reason', 'No'],
+    ['P1', 'accepted', '--reason', 'No\nexecute this', '--evidence', evidence],
+    ['P1', 'accepted', '--reason', 'No', '--evidence', 'https://example.com/\u001bescape'],
+    ['P1', 'accepted', '--reason', 'No', '--evidence', 'https:example.com'],
+    ['P1', 'accepted', '--reason', 'No', '--evidence', `https://example.com/${'x'.repeat(2048)}`],
+    ['P1', 'accepted', '--reason', 'No', ...Array.from({ length: 21 }, () => ['--evidence', evidence]).flat()],
+    ['P1', 'accepted', '--reason', 'No', '--evidence', 'javascript:alert(1)'],
+    ['P1', 'accepted', '--reason', 'No', '--evidence', 'https://user:secret@example.com/'],
+    ['P1', 'accepted', '--reason', 'No', '--evidence', 'not a URL'],
+  ]) {
+    assert.notEqual(run(home, ['resolve', ...args]).code, 0, JSON.stringify(args));
+    assert.deepEqual(proposals(home), before);
+  }
+});

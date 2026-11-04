@@ -21,7 +21,6 @@ function questions() {
     ['scope', 'Code-clarity scope', ['touched', 'neighbours', 'two-layers']],
     ['output', 'Output', ['pr', 'report']],
     ['autoMergeLowRisk', 'Auto-merge low-risk agent-setup PRs?', ['false', 'true']],
-    ['expireAfterBatches', 'Expire open proposals after how many batches', ['3', '5']],
     ['editable', 'Writable paths (JSON list)', ['[]']],
     ['targets.preset', 'Where agent-setup changes go', ['~/.claude/skills', '~/.codex/skills', '<plugin repo path>']],
     ['targets.note', 'Note for agents about targets', []],

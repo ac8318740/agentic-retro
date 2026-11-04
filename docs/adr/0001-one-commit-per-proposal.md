@@ -1,5 +1,11 @@
 # One commit per proposal, matched by ID
 
+**Status:** commit format retained; outcome rules below superseded.
+
+Current behavior is documented in the [proposal lifecycle](../../README.md#the-life-of-a-proposal). Closure or a missing ID no longer means rejection. The existing batch runner infers each proposal's outcome from source and discussion evidence; ambiguous outcomes stay neutral. Manual decisions remain authoritative, and proposal-specific inference outranks a surviving commit headline.
+
+## Original decision
+
 In PR mode, each proposal is its own commit, and the commit headline starts with the proposal's ID (e.g. `P12: shorten the map skill`). `agentic-retro sync` reads the commits of each merged PR. A proposal whose ID is still there counts as accepted, and one whose commit was dropped counts as rejected.
 
 ## Considered options
