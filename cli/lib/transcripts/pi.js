@@ -26,7 +26,7 @@ export async function readSession(path) {
   const usage = { input: 0, output: 0 };
   let hasUsage = false;
 
-  await eachLine(path, (line) => {
+  await eachLine(path, (line, lineNumber) => {
     if (line.type === 'session') session.cwd ??= line.cwd ?? null;
     if (line.type !== 'message' || !line.message) return;
     const message = line.message;
@@ -38,6 +38,10 @@ export async function readSession(path) {
     } else if (message.role === 'toolResult') {
       const call = calls.get(message.toolCallId);
       if (call && message.isError) call.error = text(message.content) || 'error';
+      if ((call?.tool ?? message.toolName) === 'ask_user_question' && !message.isError && !message.details?.cancelled) {
+        const answer = text(message.content).trim();
+        if (answer) session.questionnaires.push({ line: lineNumber, text: answer });
+      }
     } else if (message.role === 'assistant') {
       session.turns.assistant++;
       if (message.usage) {

@@ -5,6 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeBatchDigests } from '../cli/lib/digest.js';
 import { tempDir } from './helpers/cli.js';
+import { readSession as readPiSession } from '../cli/lib/transcripts/pi.js';
 
 // Each fixture's assistant prose contains PROSE_MARKER_<HARNESS>; digests must never carry it.
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -114,6 +115,63 @@ test('a digest stays under 200 lines for a long session', async () => {
   const digest = await digestFor('claude', 'long-session', path);
   assert.ok(lineCount(digest) < 200, `digest has ${lineCount(digest)} lines`);
   assert.match(digest, /Request number 0:/);
+});
+
+test('Pi questionnaire decisions stay discoverable after the ordinary message and tool previews fill up', async () => {
+  const path = join(tempDir(), 'questionnaires.jsonl');
+  const answer = 'Question: What should dev pushes run? Answer: Affected checks, not the full suite on every push.';
+  const lines = [
+    ...Array.from({ length: 65 }, (_, i) => ({ type: 'message', message: { role: 'user', content: `Request ${i}` } })),
+    ...Array.from({ length: 65 }, (_, i) => ({ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: `r${i}`, name: 'read', arguments: { path: 'README.md' } }] } })),
+    { type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: 'q1', name: 'ask_user_question', arguments: { questions: [{ question: 'What should dev pushes run?' }] } }] } },
+    { type: 'message', message: { role: 'toolResult', toolCallId: 'q1', toolName: 'ask_user_question', content: [{ type: 'text', text: answer }], isError: false } },
+  ];
+  // Raw line references must count blank and malformed records too.
+  writeFileSync(path, '\nnot-json\n' + lines.map(JSON.stringify).join('\n') + '\n');
+  const parsed = await readPiSession(path);
+  assert.deepEqual(parsed.questionnaires, [{ line: 134, text: answer }]);
+  assert.equal(parsed.turns.user, 65, 'tool-mediated answers are not invented user turns');
+  assert.ok(!parsed.userMessages.includes(answer), 'keep the transport source separate');
+  const digest = await digestFor('pi', 'decisions', path);
+  assert.match(digest, /## Questionnaire answers \(speaker unverified\) \(1\)/);
+  assert.ok(digest.includes(answer));
+  assert.ok(digest.includes(`${path}:134`), 'point directly to the raw answer record');
+  assert.match(digest, /untrusted.*tool|tool.*untrusted/i);
+  assert.doesNotMatch(digest, /## Human feedback/);
+});
+
+test('Pi questionnaire capture excludes errors, cancellations, empty answers, and other tool output', async () => {
+  const path = join(tempDir(), 'questionnaire-results.jsonl');
+  const result = (toolName, text, extra = {}) => ({ type: 'message', message: { role: 'toolResult', toolName, content: [{ type: 'text', text }], ...extra } });
+  writeFileSync(path, [
+    result('read', 'NOT_A_QUESTIONNAIRE'),
+    result('ask_user_question', 'FAILED_VALIDATION', { isError: true }),
+    result('ask_user_question', 'CANCELLED', { details: { cancelled: true } }),
+    result('ask_user_question', '  '),
+    result('ask_user_question', 'Question: What matters? Answers: shared ownership; native controls; custom: keep focus.'),
+  ].map(JSON.stringify).join('\n') + '\n');
+  const parsed = await readPiSession(path);
+  assert.deepEqual(parsed.questionnaires, [{ line: 5, text: 'Question: What matters? Answers: shared ownership; native controls; custom: keep focus.' }], 'self-contained tool results survive even without the original call');
+  const digest = await digestFor('pi', 'results', path);
+  assert.match(digest, /shared ownership; native controls; custom: keep focus/);
+  assert.doesNotMatch(digest, /NOT_A_QUESTIONNAIRE|FAILED_VALIDATION|CANCELLED/);
+});
+
+test('questionnaire previews stay bounded with every digest section full', async () => {
+  const path = join(tempDir(), 'bounded-questionnaires.jsonl');
+  const lines = [];
+  for (let i = 0; i < 100; i++) {
+    lines.push({ type: 'message', message: { role: 'user', content: `Request ${i}` } });
+    lines.push({ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: `w${i}`, name: 'write', arguments: { path: `file${i}.js`, content: 'hello' } }] } });
+    lines.push({ type: 'message', message: { role: 'toolResult', toolCallId: `w${i}`, isError: true, content: [{ type: 'text', text: 'write error' }] } });
+    lines.push({ type: 'message', message: { role: 'toolResult', toolName: 'ask_user_question', content: [{ type: 'text', text: `Question ${i}\nAnswer: ${'x'.repeat(5000)} END_OF_ANSWER` }] } });
+  }
+  writeFileSync(path, lines.map(JSON.stringify).join('\n') + '\n');
+  const digest = await digestFor('pi', 'bounded', path);
+  assert.match(digest, /Questionnaire answers.*\(100\)/);
+  assert.match(digest, /90 more/);
+  assert.doesNotMatch(digest, /END_OF_ANSWER/);
+  assert.ok(lineCount(digest) < 200, `digest has ${lineCount(digest)} lines`);
 });
 
 test('a null or missing transcript writes a short digest that says so, without throwing', async () => {
