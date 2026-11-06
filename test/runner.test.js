@@ -76,6 +76,21 @@ test('pi: pi -p with --model unless default or opus (opus is a Claude model)', (
   assert.ok(!build({ harness: 'pi', model: 'opus' }).args.includes('--model'));
 });
 
+test('pi: headless batches exclude asynchronous teams and require inline category analysis', () => {
+  for (const permissions of ['auto', 'scoped', 'bypass']) {
+    const cmd = build({ harness: 'pi', permissions });
+    assert.equal(after(cmd.args, '--exclude-tools'), 'team_agent,team_message');
+    assert.match(promptOf(cmd.args), /Analyze every enabled category sequentially in this session/);
+    assert.match(promptOf(cmd.args), /before calling batch finish/);
+    assert.ok(!cmd.args.includes('--no-extensions'), 'keep other installed tools and extensions');
+  }
+  for (const harness of ['claude', 'codex', 'herdr']) {
+    const command = build({ harness });
+    const steps = Array.isArray(command) ? command : [command];
+    assert.ok(steps.every((step) => !step.args.includes('--exclude-tools')), harness);
+  }
+});
+
 test('herdr: opens a workspace in the batch folder, then types the claude command into its pane', () => {
   const steps = build({ harness: 'herdr', model: 'opus', permissions: 'auto' });
   assert.ok(Array.isArray(steps));

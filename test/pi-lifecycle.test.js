@@ -28,7 +28,10 @@ async function status(f, terminal = true) {
     const result = f.call(['batch', 'status', '1', '--json']);
     if (result.code === 0) {
       try { last = JSON.parse(result.stdout); } catch {}
-      if (last && (!terminal || ['failed', 'incomplete', 'completed'].includes(last.status))) return last;
+      if (last && (!terminal || ['failed', 'incomplete', 'completed'].includes(last.status))) {
+        // The supervisor publishes terminal status before removing its lock.
+        if (!terminal || !existsSync(join(f.home, 'batches', '1', 'run.lock'))) return last;
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 30));
   }
