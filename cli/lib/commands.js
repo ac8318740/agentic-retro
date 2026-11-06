@@ -67,7 +67,10 @@ function codexArgs({ model, permissions }, n, dirs, batchDir) {
 // Load the bundled skill even when this runner has no native package registration.
 function piArgs({ model }, n) {
   const cli = [process.execPath, join(PACKAGE_ROOT, 'cli', 'agentic-retro.js')].map(shellQuote).join(' ');
-  return ['-p', ...modelFlag('--model', model), '--skill', join(PACKAGE_ROOT, 'skills', 'run'), `${prompt(n)} Use this bundled CLI for every agentic-retro command: ${cli}. Await all category results before calling batch finish.`];
+  // An empty ac-teams wait ends Pi's print run and shuts down unfinished members.
+  return ['-p', ...modelFlag('--model', model), '--exclude-tools', 'team_agent,team_message',
+    '--skill', join(PACKAGE_ROOT, 'skills', 'run'),
+    `${prompt(n)} Use this bundled CLI for every agentic-retro command: ${cli}. This is a headless Pi run: do not delegate or wait for background agents. Analyze every enabled category sequentially in this session before calling batch finish.`];
 }
 
 const shellQuote = (arg) => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`);
