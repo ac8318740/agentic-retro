@@ -1,7 +1,7 @@
 // The queue: finished sessions wait here until their group fills a batch.
 import { readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, basename } from 'node:path';
+import { join, basename, resolve, sep } from 'node:path';
 import { readJson, writeJson } from './paths.js';
 import { loadConfig } from './config.js';
 import { startBatch } from './runner.js';
@@ -25,6 +25,8 @@ function harnessOf(transcript) {
   if (transcript.includes('/.codex/') || basename(transcript).startsWith('rollout-')) return 'codex';
   if (transcript.includes('/.claude/')) return 'claude';
   if (transcript.includes('/.pi/')) return 'pi';
+  const claudeConfig = process.env.CLAUDE_CONFIG_DIR;
+  if (claudeConfig && resolve(transcript).startsWith(resolve(claudeConfig, 'projects') + sep)) return 'claude';
   return undefined;
 }
 
