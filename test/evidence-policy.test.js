@@ -57,6 +57,30 @@ test('run infers auditable proposal-specific outcomes before stats without treat
   assert.match(read('README.md'), /ledger --json/);
 });
 
+test('unresolved memory retains provenance without changing recurring evidence thresholds or raw batch grouping', () => {
+  const skill = read('skills/run/SKILL.md');
+  assert.match(skill, /candidates list --batch/);
+  assert.match(skill, /candidates save --batch/);
+  assert.match(skill, /same shared owner and specific proposed change/);
+  assert.match(skill, /no automatic age expiry/);
+  assert.match(skill, /missing original evidence.*unknown|unknown.*missing original evidence/i);
+  assert.match(skill, /distinct sessions.*not.*references/i);
+  assert.match(skill, /repo-scoped transcript batches/);
+  assert.match(skill, /terminal dispositions.*cannot.*resurrect/i);
+  assert.match(skill, /candidate.*untrusted data/i);
+});
+
+test('developer-tooling review priorities stay qualitative with whole-team usage unknowns and hard gates', () => {
+  const skill = read('skills/run/SKILL.md');
+  assert.match(skill, /developer-tooling and process reviews/);
+  assert.match(skill, /40% quality.*40% verified end-to-end completion time.*20% whole-team tokens/);
+  assert.match(skill, /qualitative priorities.*not a composite score/);
+  assert.match(skill, /input, output, cache read, and cache write/);
+  assert.match(skill, /missing child usage is unknown, not zero/);
+  assert.match(skill, /Correctness, security, and required checks remain hard gates/);
+  assert.match(skill, /not apply this weighting to all product proposals/);
+});
+
 test('agent-setup correction signal requires attribution rather than directive wording alone', () => {
   const category = read('skills/run/agent-setup.md');
   assert.match(category, /(?:attribut|verif)[^\n]*human|human[^\n]*(?:attribut|verif)/i);

@@ -149,8 +149,10 @@ Using Codex? It asks you to trust the new session-end hook the first time a sess
 - `agentic-retro resolve <id> <accepted|rejected|neutral> --reason <text> --evidence <https-url>` – record the batch agent's inference (repeat `--evidence` for multiple sources). Requires a proposal ID, nonblank reason (at most 4000 characters, no control characters), and 1 to 20 HTTPS evidence URLs without credentials. Evidence is stored, not fetched or executed; the agent must assess its relevance and attribution
 - `agentic-retro ledger [--status <s>[,<s>...]] [--json]` – list proposals; JSON includes reasons, evidence, and decision provenance
 - `agentic-retro sync` – refresh observable PR state, leave unknown closure intent neutral, and recover legacy inactivity expiries
-- `agentic-retro notice` – the session-start one-line proposal count (hooks call this)
+- `agentic-retro notice` – a deduplicated session-start summary of completed reviews (including no proposals), failed or incomplete attempts, and new proposals (hooks call this)
 - `agentic-retro stats` – acceptance rate per category, and tokens per changed line
+- `agentic-retro candidates list --batch <n>` – unresolved repo-local and shared-tool evidence for a review
+- `agentic-retro candidates save --batch <n> --file <json-path>` – retain compact evidence or a terminal disposition (record format in `skills/run/SKILL.md`)
 - `agentic-retro install-pi` – write a legacy standalone Pi extension (not needed for native packages)
 - `agentic-retro batch status <n> [--json]` – inspect a Pi batch's recorded lifecycle
 - `agentic-retro batch retry <n>` – explicitly retry a failed or incomplete Pi batch from its preserved manifest
@@ -161,6 +163,10 @@ Using Codex? It asks you to trust the new session-end hook the first time a sess
 Pi batches run from their batch directory, not the target repository. A missing ACStack configuration there does not mean the target repository is unconfigured.
 
 Each supervised Pi batch keeps `batch.json`, `run.log`, and `status.json` in `batches/<n>/` under the state folder. Queue removal means the agent started, not that it completed. `completed` requires both an explicit finish handshake and exit code 0. A nonzero exit is `failed`; exit 0 without the handshake is `incomplete`. The handshake records the agent's workflow summary, not independent proof that its findings are correct.
+
+At session start, a compact notice summarizes terminal attempts for the current repository since its last notice, even when completed reviews produced no proposals. Failures and incomplete attempts appear first. A retry's new terminal result can notify again; active attempts and historical batches without status are not counted as completed. New proposal links retain their existing notice behavior. Batch agents never notify themselves.
+
+Pi session digests retain ac-teams launch, resume, and stop attempts with raw transcript references, member identifiers, and observed results. Missing results stay unknown; a launch attempt or resume is not a confirmed new subagent. Token metrics include available input, output, cache read, and cache write counts for that transcript. Missing counts remain unknown. Whole-team usage requires every relevant member transcript; member references alone do not establish coverage.
 
 From Pi, inspect and recover with:
 
@@ -177,7 +183,10 @@ Claude Code, Codex, and herdr retain their existing launch behavior; this lifecy
 
 ## State
 
-- Runtime state lives under `~/.agentic-retro/` (override with `AGENTIC_RETRO_HOME`): config, queue, ledger, metrics, batch digests, and reports
+- Runtime state lives under `~/.agentic-retro/` (override with `AGENTIC_RETRO_HOME`): config, queue, ledger, metrics, batch digests, reports, and compact candidate events
+- Unresolved candidates carry forward without age expiry. Repo-local evidence stays scoped to its owner; agent-setup evidence may cross repos only for the same explicitly shared owner and specific change. Raw transcript grouping is unchanged
+- Candidate events preserve source batch/session/repo/transcript/line and speaker attribution. Reviews must recheck original evidence, current code, and prior proposal decisions; missing sources remain unverified. Recurrence thresholds are unchanged
+- Immutable candidate events merge repeated evidence and retain terminal dispositions despite stale concurrent writes. Input/retrieval safety limits fail visibly without deleting or silently truncating unresolved evidence
 - Repository activation lives in Git's shared local configuration and never enters the tracked checkout
 - Keep runtime state outside repositories; Git ignores its own metadata automatically
 
