@@ -1,6 +1,6 @@
 {
   "name": "agentic-retro",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "agentic-retrospective: reviews finished agent coding sessions and proposes improvements",
   "type": "module",
   "keywords": [
@@ -11,7 +11,10 @@
   },
   "files": [
     "cli/",
-    "skills/"
+    "skills/",
+    ".claude-plugin/plugin.json",
+    ".codex-plugin/plugin.json",
+    "hooks/"
   ],
   "engines": {
     "node": ">=20"

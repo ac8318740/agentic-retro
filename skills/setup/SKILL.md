@@ -11,7 +11,7 @@ Walk the user through agentic-retro's config, one question at a time, then write
 
 Use the package-local CLI invocation supplied by the host. Otherwise resolve `../../cli/agentic-retro.js` relative to this skill directory and run it with Node.js. In every command below, replace `agentic-retro` with that invocation, quoting the executable and path separately.
 
-Run its `about` command to check it works. A native Pi package includes the CLI; do not require a global `agentic-retro` binary or install another copy. If the bundled file or Node.js is missing, report the exact error and stop.
+Run its `about` command to check it works. The plugin package includes the CLI; do not require a global `agentic-retro` binary or install another copy. If the bundled file or Node.js is missing, report the exact error and stop.
 
 ## Open with the intro
 

@@ -18,6 +18,9 @@ function assertRunsInBatch(cmd) {
   assert.equal(cmd.cwd, DIR);
   assert.equal(cmd.env.AGENTIC_RETRO_RUN, '1');
   assert.ok(promptOf(cmd.args), `a prompt names the run skill and batch 7: ${cmd.args}`);
+  assert.match(promptOf(cmd.args), /Use this bundled CLI for every agentic-retro command:/);
+  assert.ok(promptOf(cmd.args).includes(process.execPath));
+  assert.match(promptOf(cmd.args), /cli\/agentic-retro\.js/);
 }
 
 test('runner.permissions defaults to auto and accepts scoped', () => {
@@ -45,6 +48,9 @@ test('claude: model default omits --model; bypass and scoped map to permission f
   assert.equal(after(scoped.args, '--permission-mode'), 'acceptEdits');
   const allowed = scoped.args.join(' ');
   for (const tool of ['Bash(git:*)', 'Bash(gh:*)', 'Bash(agentic-retro:*)']) assert.ok(allowed.includes(tool), tool);
+  const invocation = promptOf(scoped.args).split('Use this bundled CLI for every agentic-retro command: ')[1].replace(/\.$/, '');
+  assert.ok(after(scoped.args, '--allowedTools').includes(`Bash(${invocation}:*)`));
+  assert.ok(!allowed.includes('Bash(node:*)'), 'must not allow arbitrary Node programs');
 });
 
 test('codex: codex exec passes the env through and maps each permission mode', () => {

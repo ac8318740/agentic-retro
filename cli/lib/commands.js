@@ -6,11 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { stateDir } from './paths.js';
 
 const ENV = { AGENTIC_RETRO_RUN: '1' };
-const SCOPED_TOOLS = 'Bash(git:*),Bash(gh:*),Bash(agentic-retro:*)';
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const shellQuote = (arg) => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`);
+const CLI_COMMAND = [process.execPath, join(PACKAGE_ROOT, 'cli', 'agentic-retro.js')].map(shellQuote).join(' ');
+const SCOPED_TOOLS = `Bash(git:*),Bash(gh:*),Bash(agentic-retro:*),Bash(${CLI_COMMAND}:*)`;
 export const PANE_ID = '<pane_id>';
 
-const prompt = (n) => `Use the agentic-retro run skill on batch ${n} in this folder.`;
+const prompt = (n) => `Use the agentic-retro run skill on batch ${n} in this folder. Use this bundled CLI for every agentic-retro command: ${CLI_COMMAND}.`;
 // opus is a Claude model name, not a codex/pi one, so for those harnesses treat it like
 // "default" (no flag) rather than passing it through unrecognized. Claude keeps it as-is.
 const modelFlag = (flag, model, isClaude = false) =>
@@ -66,14 +68,11 @@ function codexArgs({ model, permissions }, n, dirs, batchDir) {
 // Pi never asks before a tool call, so every permissions mode runs the same way.
 // Load the bundled skill even when this runner has no native package registration.
 function piArgs({ model }, n) {
-  const cli = [process.execPath, join(PACKAGE_ROOT, 'cli', 'agentic-retro.js')].map(shellQuote).join(' ');
   // An empty ac-teams wait ends Pi's print run and shuts down unfinished members.
   return ['-p', ...modelFlag('--model', model), '--exclude-tools', 'team_agent,team_message',
     '--skill', join(PACKAGE_ROOT, 'skills', 'run'),
-    `${prompt(n)} Use this bundled CLI for every agentic-retro command: ${cli}. This is a headless Pi run: do not delegate or wait for background agents. Analyze every enabled category sequentially in this session before calling batch finish.`];
+    `${prompt(n)} This is a headless Pi run: do not delegate or wait for background agents. Analyze every enabled category sequentially in this session before calling batch finish.`];
 }
-
-const shellQuote = (arg) => (/^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`);
 
 // herdr types the command into a new pane's shell, so it gets one quoted string (see #11).
 function herdrSteps(runner, dir, n, dirs) {
