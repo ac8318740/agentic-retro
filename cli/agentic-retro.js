@@ -13,6 +13,7 @@ import { installPi } from './lib/pi.js';
 import { INTRO } from './lib/intro.js';
 import { project } from './lib/project.js';
 import { readStatus, retryBatch, finishBatch } from './lib/batch.js';
+import { listCandidates, saveCandidates } from './lib/candidates.js';
 
 const USAGE = `usage: agentic-retro <command>
   about
@@ -27,11 +28,12 @@ const USAGE = `usage: agentic-retro <command>
   ledger [--status <s>[,<s>...]] [--json]
   notice [--json] [--cwd <dir>]
   stats [--json]
+  candidates list --batch <n> | save --batch <n> --file <json-path>
   sync
   batch status <n> [--json] | retry <n> [--recover-stale] | finish <n> --summary <text>
   install-pi`;
 
-const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status', 'summary', 'reason'];
+const FLAGS = ['harness', 'session', 'transcript', 'cwd', 'repo', 'category', 'risk', 'title', 'pr', 'commit', 'status', 'summary', 'reason', 'batch', 'file'];
 const options = Object.fromEntries(FLAGS.map((flag) => [flag, { type: 'string' }]));
 options.json = { type: 'boolean' };
 options.evidence = { type: 'string', multiple: true };
@@ -79,6 +81,11 @@ async function main() {
     if (action === 'status') return console.log(JSON.stringify(readStatus(n), null, 2));
     if (action === 'retry') return retryBatch(n, flags['recover-stale']);
     if (action === 'finish') return finishBatch(n, flags.summary);
+    throw new Error(USAGE);
+  }
+  if (command === 'candidates') {
+    if (positionals[0] === 'list') return console.log(JSON.stringify(listCandidates(flags.batch), null, 2));
+    if (positionals[0] === 'save' && flags.file) return saveCandidates(flags.batch, flags.file);
     throw new Error(USAGE);
   }
   if (command === 'setup') return setup();

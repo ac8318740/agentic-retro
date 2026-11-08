@@ -154,6 +154,53 @@ test('--json prints a systemMessage with the same line', () => {
   rmSync(home, { recursive: true, force: true });
 });
 
+function review(home, n, status, attempt = `attempt-${n}`, cwd = repo) {
+  const dir = join(home, 'batches', String(n));
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'batch.json'), JSON.stringify({ sessions: [{ cwd }] }));
+  if (status) writeFileSync(join(dir, 'status.json'), JSON.stringify({ batch: n, status, attempt, endedAt: '2026-10-01T12:00:00.000Z' }));
+}
+
+test('completed reviews with no proposals are summarized once, scoped to the repository', () => {
+  const home = makeHome();
+  writeState(home, { ledger: { nextId: 1, batchCount: 4, proposals: [] } });
+  review(home, 1, 'completed');
+  review(home, 2, 'completed');
+  review(home, 3, 'running');
+  review(home, 4, 'completed', 'other', '/not-this-repository');
+  const first = runNotice(home);
+  assert.match(first.stdout, /2 completed reviews.*no proposals/);
+  assert.equal(runNotice(home).stdout, '');
+  rmSync(home, { recursive: true, force: true });
+});
+
+test('failed and incomplete attempts are prominent; retry completion gets a new notice', () => {
+  const home = makeHome();
+  writeState(home, { ledger: { nextId: 1, batchCount: 3, proposals: [] } });
+  review(home, 1, 'failed');
+  review(home, 2, 'incomplete'); // exit zero without finish handshake is not completion
+  review(home, 3, null); // legacy/no status cannot establish completion
+  assert.match(runNotice(home).stdout, /^agentic-retro: ATTENTION.*failed.*incomplete/);
+  assert.equal(runNotice(home).stdout, '');
+  review(home, 2, 'completed', 'retry-attempt');
+  assert.match(runNotice(home).stdout, /1 completed review.*no proposals/);
+  assert.equal(runNotice(home).stdout, '');
+  rmSync(home, { recursive: true, force: true });
+});
+
+test('review summaries coexist with proposals and do not notify batch agents', () => {
+  const home = makeHome();
+  writeState(home, { config: { output: 'report' }, ledger: { nextId: 2, batchCount: 1, proposals: [proposal({})] } });
+  review(home, 1, 'completed');
+  assert.equal(runNotice(home, [], { AGENTIC_RETRO_RUN: '1' }).stdout, '');
+  const first = runNotice(home).stdout;
+  assert.match(first, /1 completed review/);
+  assert.match(first, /1 new proposal/);
+  assert.doesNotMatch(first, /no proposals/);
+  assert.equal(runNotice(home).stdout, '');
+  rmSync(home, { recursive: true, force: true });
+});
+
 test('never exits non-zero, even when ledger.json is corrupt', () => {
   const home = makeHome();
   writeState(home, { config: { output: 'pr' } }, '{ not valid json');

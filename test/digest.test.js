@@ -165,10 +165,12 @@ test('questionnaire previews stay bounded with every digest section full', async
     lines.push({ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: `w${i}`, name: 'write', arguments: { path: `file${i}.js`, content: 'hello' } }] } });
     lines.push({ type: 'message', message: { role: 'toolResult', toolCallId: `w${i}`, isError: true, content: [{ type: 'text', text: 'write error' }] } });
     lines.push({ type: 'message', message: { role: 'toolResult', toolName: 'ask_user_question', content: [{ type: 'text', text: `Question ${i}\nAnswer: ${'x'.repeat(5000)} END_OF_ANSWER` }] } });
+    lines.push({ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: `t${i}`, name: 'team_agent', arguments: { action: 'launch', name: `member${i}` } }] } });
   }
   writeFileSync(path, lines.map(JSON.stringify).join('\n') + '\n');
   const digest = await digestFor('pi', 'bounded', path);
   assert.match(digest, /Questionnaire answers.*\(100\)/);
+  assert.match(digest, /Team lifecycle.*\(100\)/);
   assert.match(digest, /90 more/);
   assert.doesNotMatch(digest, /END_OF_ANSWER/);
   assert.ok(lineCount(digest) < 200, `digest has ${lineCount(digest)} lines`);
@@ -186,4 +188,62 @@ test('a null or missing transcript writes a short digest that says so, without t
     assert.match(digest, /missing|unavailable|not found|no transcript/i);
     assert.ok(lineCount(digest) < 20);
   }
+});
+
+
+test('Pi team lifecycle keeps attempts, outcomes and member refs beyond the tool preview', async () => {
+  const path = join(tempDir(), 'team.jsonl');
+  const call = (id, args) => ({ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id, name: 'team_agent', arguments: args }] } });
+  const result = (id, details, isError = false) => ({ type: 'message', message: { role: 'toolResult', toolCallId: id, details, isError, content: [{ type: 'text', text: JSON.stringify(details) }] } });
+  writeFileSync(path, [
+    ...Array.from({ length: 55 }, (_, i) => call(`list${i}`, { action: 'list' })),
+    call('a', { action: 'launch', name: 'parser' }), result('a', { id: 'member1', name: 'parser', sessionId: 'child-session', status: 'busy' }),
+    call('b', { action: 'launch', name: 'broken' }), result('b', { error: 'denied' }, true),
+    call('c', { action: 'resume', id: 'member1' }), result('c', { id: 'member1', status: 'idle' }),
+    call('d', { action: 'stop', id: 'member1' }), result('d', { id: 'member1', status: 'stopped' }),
+    call('e', { action: 'launch', name: 'unfinished' }),
+  ].map(JSON.stringify).join('\n'));
+  const parsed = await readPiSession(path);
+  assert.equal(parsed.subagents, 1, 'only confirmed launches count, not attempts or resumes');
+  assert.deepEqual(parsed.teamLifecycle.map(({ action, outcome }) => [action, outcome]), [
+    ['launch', 'succeeded'], ['launch', 'failed'], ['resume', 'succeeded'], ['stop', 'succeeded'], ['launch', 'unknown'],
+  ]);
+  assert.equal(parsed.teamLifecycle[0].memberId, 'member1');
+  assert.equal(parsed.teamLifecycle[0].sessionId, 'child-session');
+  const digest = await digestFor('pi', 'team', path);
+  assert.match(digest, /Team lifecycle/);
+  assert.match(digest, /launch.*parser.*succeeded.*member1.*child-session/);
+  assert.match(digest, /launch.*unfinished.*unknown/);
+  assert.ok(digest.includes(`${path}:56`));
+  assert.match(digest, /whole-team.*unknown|unknown.*whole-team/i);
+});
+
+test('Pi separates legacy delegation tool outcomes from confirmed team launches', async () => {
+  const path = join(tempDir(), 'mixed-delegations.jsonl');
+  const call = (id, name, args = {}) => ({ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id, name, arguments: args }] } });
+  const result = (id, isError, details = {}) => ({ type: 'message', message: { role: 'toolResult', toolCallId: id, isError, details, content: [] } });
+  writeFileSync(path, [
+    call('failed', 'task'), result('failed', true),
+    call('ok', 'subagent'), result('ok', false),
+    call('unknown', 'delegate'),
+    call('team', 'team_agent', { action: 'launch', name: 'parser' }), result('team', false, { id: 'member' }),
+  ].map(JSON.stringify).join('\n'));
+  const parsed = await readPiSession(path);
+  assert.equal(parsed.subagents, 1, 'only confirmed team launches have known child count');
+  assert.deepEqual(parsed.legacyDelegations.map((e) => e.outcome), ['failed', 'succeeded', 'unknown']);
+  const digest = await digestFor('pi', 'mixed-delegations', path);
+  assert.match(digest, /1 confirmed team launches/);
+  assert.match(digest, /legacy delegation tool attempts: 3 \(1 succeeded, 1 failed, 1 unknown\)/);
+  assert.match(digest, /tool success does not verify child launch or completion/);
+});
+
+test('Pi cache usage includes auxiliary usage records and preserves missing fields as unknown', async () => {
+  const path = join(tempDir(), 'usage.jsonl');
+  writeFileSync(path, [
+    { type: 'message', message: { role: 'assistant', content: [], usage: { input: 10, output: 2, cacheRead: 30, cacheWrite: 4 } } },
+    { type: 'usage', usage: { input: 3, output: 1, cacheRead: 5, cacheWrite: 0 } },
+  ].map(JSON.stringify).join('\n'));
+  assert.deepEqual((await readPiSession(path)).usage, { input: 13, output: 3, cacheRead: 35, cacheWrite: 4 });
+  writeFileSync(path, JSON.stringify({ type: 'message', message: { role: 'assistant', content: [], usage: { input: 10, output: 2 } } }));
+  assert.equal((await readPiSession(path)).usage.cacheRead, null);
 });
