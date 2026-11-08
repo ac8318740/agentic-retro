@@ -1,6 +1,6 @@
 {
   "name": "agentic-retro",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "agentic-retrospective: reviews finished agent coding sessions and proposes improvements",
   "type": "module",
   "keywords": [
