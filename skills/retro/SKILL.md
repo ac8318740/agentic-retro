@@ -7,6 +7,8 @@ description: Thin wrapper that runs `agentic-retro stats` and explains the resul
 
 Run `agentic-retro stats` and explain the result in plain words.
 
+Use the package-local CLI invocation supplied by the host. Otherwise resolve `../../cli/agentic-retro.js` relative to this skill directory and run it with Node.js. In every command below, replace `agentic-retro` with that invocation, quoting the executable and path separately. No global CLI install is needed.
+
 ## Run it
 
 ```

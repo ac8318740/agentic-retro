@@ -7,6 +7,8 @@ description: Walk the user through an agentic-retro report, apply each proposal 
 
 Walk an agentic-retro report one proposal at a time. Apply what the user accepts, and record every outcome in the ledger.
 
+Use the package-local CLI invocation supplied by the host. Otherwise resolve `../../cli/agentic-retro.js` relative to this skill directory and run it with Node.js. In every command below, replace `agentic-retro` with that invocation, quoting the executable and path separately. No global CLI install is needed.
+
 ## Find the report
 
 - Use the report the user names, or the one they just opened

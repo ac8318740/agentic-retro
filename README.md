@@ -73,7 +73,7 @@ Use the CLI from Pi, for example:
 
 Run the project commands from the repository you want reviewed. Do not also run `install-pi`: loading both the native package and legacy extension duplicates commands and hooks.
 
-### Claude Code and Codex: plugin and CLI
+### Claude Code and Codex: plugin package
 
 Add the marketplace and install the plugin:
 
@@ -82,21 +82,15 @@ Add the marketplace and install the plugin:
 /plugin install agentic-retro@ac-agentic-coding
 ```
 
-Install the CLI the plugin's hooks call into:
+The marketplace's npm source installs the plugin manifest, hooks, skills, and CLI together. Hooks and skills use that package's CLI; no global install is required. Git-sourced plugin installs use the same bundled CLI.
 
-```
-npm install -g agentic-retro
-```
-
-Run setup, either from the CLI or with the bundled skill:
-
-```
-agentic-retro setup
-```
+Run the bundled setup skill:
 
 ```
 /agentic-retro:setup
 ```
+
+For terminal use, `npm install -g agentic-retro` is optional. It provides the `agentic-retro` command, including interactive `agentic-retro setup`. Without it, run `node "<installed-plugin-directory>/cli/agentic-retro.js"` in place of `agentic-retro` in the examples below. Skills resolve this path from their own package directory.
 
 - The `setup` skill asks every question itself and writes each answer with `agentic-retro config set`
 - `agentic-retro setup` runs the same questions as plain interactive prompts – the human alternative to the skill
@@ -127,7 +121,7 @@ agentic-retro project disable
 
 For legacy standalone Pi installation only, install the CLI globally and run `agentic-retro install-pi`. This writes an extension file instead of using Pi's native package loader. Choose one installation path; do not load both.
 
-Using Codex? It asks you to trust the new session-end hook the first time a session ends after install.
+Approve plugin hooks when your host requests trust. Native npm installation and discovery of both `SessionStart` and `SessionEnd` hooks are tested with Codex 0.163; older versions may require an upgrade.
 
 ## Skills
 
@@ -192,7 +186,7 @@ Claude Code, Codex, and herdr retain their existing launch behavior; this lifecy
 
 ## Working on agentic-retro
 
-Run the tests with `npm test`.
+Run the tests with `npm test`. The package regression test packs and extracts the real tarball, then exercises capture and notices without a global CLI. To also test native Codex npm installation and hook discovery (requires `codex` on PATH), run `AGENTIC_RETRO_TEST_CODEX=1 node --test test/plugin-package.test.js`. It uses isolated homes and a local tarball in place of the registry download; it makes no model calls.
 
 - `cli/agentic-retro.js`: parses arguments and routes commands to their modules
 - `cli/lib/`: CLI behavior, including:

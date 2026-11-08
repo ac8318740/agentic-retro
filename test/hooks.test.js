@@ -41,6 +41,35 @@ for (const [harness, transcript] of inferCases) {
   });
 }
 
+test('Claude capture recognizes CLAUDE_CONFIG_DIR/projects without the default .claude path', () => {
+  const home = tempDir();
+  const configDir = join(tempDir(), 'custom config');
+  const transcript = join(configDir, 'projects', '-work-app', 'c1.jsonl');
+  const result = hookEnqueue(home, endPayload('c1', transcript, enabledRepo()), { CLAUDE_CONFIG_DIR: configDir });
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(queued(home)[0].harness, 'claude');
+  assert.equal(queued(home)[0].transcript, transcript);
+});
+
+test('Claude config inference rejects paths outside projects and retains explicit/conventional harness precedence', () => {
+  const configDir = join(tempDir(), 'config');
+  for (const transcript of [join(configDir, 'projects-other', 'c1.jsonl'), join(configDir, 'projects', '..', 'outside.jsonl')]) {
+    const result = hookEnqueue(tempDir(), endPayload('c1', transcript, enabledRepo()), { CLAUDE_CONFIG_DIR: configDir });
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /enqueue needs a harness/);
+  }
+  for (const [harness, name] of [['codex', 'rollout-c1.jsonl'], ['pi', '.pi/c1.jsonl']]) {
+    const home = tempDir();
+    const result = hookEnqueue(home, endPayload('c1', join(configDir, 'projects', name), enabledRepo()), { CLAUDE_CONFIG_DIR: configDir });
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(queued(home)[0].harness, harness);
+  }
+  const home = tempDir();
+  const result = run(home, ['enqueue', '--harness', 'codex', '--session', 'explicit', '--transcript', join(configDir, 'projects', 'c1.jsonl'), '--cwd', enabledRepo()], { env: { CLAUDE_CONFIG_DIR: configDir } });
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(queued(home)[0].harness, 'codex');
+});
+
 test('a null transcript_path is found under $CODEX_HOME/sessions and recorded as codex', () => {
   const home = tempDir();
   const codexHome = tempDir('agentic-retro-codex-');
@@ -98,12 +127,12 @@ test('install-pi writes the Pi extension and is idempotent', () => {
   assert.equal(readFileSync(file, 'utf8'), content);
 });
 
-test('run.sh exits 0 and prints the install hint when the CLI is not on PATH', () => {
+test('run.sh exits 0 with a diagnostic when Node.js is not on PATH', () => {
   const result = spawnSync('/bin/bash', [join(HOOKS, 'run.sh'), 'enqueue'], {
     input: JSON.stringify(endPayload('s1', '/t/s1.jsonl', '/tmp')),
     encoding: 'utf8',
-    env: { PATH: '/usr/bin:/bin', HOME: tempDir() },
+    env: { PATH: tempDir(), HOME: tempDir() },
   });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /npm install -g agentic-retro/);
+  assert.match(result.stderr, /Node.js 20 or later is required/);
 });
